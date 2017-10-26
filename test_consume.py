@@ -1,4 +1,4 @@
-from faktory import Worker
+from faktory_worker import Worker
 
 
 def do_some_work(*args):

@@ -1,4 +1,4 @@
-from faktory import Client
+from faktory_worker import Client
 
 c = Client()
 

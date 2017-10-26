@@ -1,14 +1,16 @@
+import hashlib
 import os
-
+import os.path
 import json
 import socket
+import ssl
 import uuid
 
 from typing import Iterator
 
 from datetime import datetime, timedelta
 
-from . exceptions import HandshakeError
+from .exceptions import HandshakeError, AuthenticationError
 
 
 class Client:
@@ -22,7 +24,10 @@ class Client:
     labels = ['python']
     queues = ['default']
 
-    def __init__(self, host="localhost", port=7419, password=None):
+    tls_keyfile = "~/.faktory/tls/private.key"
+    tls_cert = "~/.faktory/tls/public.crt"
+
+    def __init__(self, host="127.0.0.1", port=7419, password=None):
         self.host = host
         self.port = port
         self.password = password
@@ -32,32 +37,47 @@ class Client:
 
     def connect(self) -> bool:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(self.timeout)
-        self.socket.connect((self.host, self.port))
+        if self.password and self.tls_cert and self.tls_keyfile:
+            # TODO: what does this raise?
+            self.socket = ssl.wrap_socket(self.socket,
+                                          keyfile=os.path.expanduser(self.tls_keyfile),
+                                          certfile=os.path.expanduser(self.tls_cert))
 
+        self.socket.settimeout(self.timeout)
+        try:
+            self.socket.connect((self.host, self.port))
+        except ssl.SSLError:
+            raise
+        
         ahoy = next(self.get_message())
         if not ahoy.startswith("HI "):
             raise HandshakeError("Could not connect to Faktory; expected HI from server, but got '{}'".format(ahoy))
+
+        response = {
+            'hostname': socket.gethostname(),
+            'wid': self.worker_id,
+            'pid': os.getpid(),
+            "labels": self.labels
+        }
 
         try:
             handshake = json.loads(ahoy[len("HI "):])
             v = int(handshake['v'])
             if v != 1:
                 raise HandshakeError("Could not connect to Faktory; need server version 1, but got '{}'".format(v))
+            nonce = handshake.get('s')
+            if nonce and self.password:
+                response['pwdhash'] = hashlib.sha256(str.encode(self.password) + str.encode(nonce)).hexdigest()
         except (ValueError, TypeError):
             raise HandshakeError("Could not connect to Faktory; expected handshake format")
 
-        # TODO: auth
-
-        self.reply("HELLO", {
-            'hostname': socket.gethostname(),
-            'wid': self.worker_id,
-            'pid': os.getpid(),
-            "labels": self.labels
-        })
+        self.reply("HELLO", response)
 
         ok = next(self.get_message())
         if ok != "OK":
+            if ok.startswith("ERR") and "invalid password" in ok.lower():
+                raise AuthenticationError("Could not connect to Faktory; wrong password")
+
             raise HandshakeError("Could not connect to Faktory; expected OK from server, but got '{}'".format(ok))
 
         self._last_heartbeat = datetime.now()

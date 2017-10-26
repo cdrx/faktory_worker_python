@@ -7,15 +7,30 @@ This is a WIP, but so far working is:
 * Concurrency (with multiple processes, via the `multiprocessing` module)
 * Pushing exception / errors from Python back up to Faktory
 
-The API will change. 
+The API will change. There is no Python 2 support.
 
 ### Todo
 
-* Authentication
-* TLS
 * Django integration (`./manage.py runworker` and a nice way to register tasks)
 * Connection failure handling
 * Gracefully wait for running tasks to finish when the worker is shutdown
+
+### Authentication
+
+You can pass `password="secret"` to the `Worker()` and `Client()` constructor, like this:
+
+```
+worker = Worker(host="server", port=7418, password="secret")
+```
+
+You'll also need the correct TLS key / certificate to connect to the server. If they are in `~/.faktory/tls` then they 
+will be picked up automatically, otherwise you can specify them on the Worker instance:
+
+```
+worker = Worker(host="server", port=7418, password="secret")
+worker.tls_keyfile = "path/to/private.key"
+worker.tls_cert = "path/to/public.crt"
+```
 
 ### Examples
 
