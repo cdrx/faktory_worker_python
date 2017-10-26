@@ -1,19 +1,25 @@
 ## Python worker for Faktory
 
-This is a WIP, but so far working is:
+This is a WIP, but supported so far:
 
-* Pushing work to Faktory from Python (with retries, custom metadata and scheduled support)
-* Creating a worker to run jobs from Faktory
-* Concurrency (with multiple processes, via the `multiprocessing` module)
-* Pushing exception / errors from Python back up to Faktory
+- [x] Creating a worker to run jobs from Faktory
+- [x] Pushing work to Faktory from Python (with retries, custom metadata and scheduled support)
+- [x] Concurrency (with multiple processes, via the `multiprocessing` module)
+- [x] Pushing exception / errors from Python back up to Faktory
 
 The API will change. There is no Python 2 support.
 
 ### Todo
 
-* Django integration (`./manage.py runworker` and a nice way to register tasks)
-* Connection failure handling
-* Gracefully wait for running tasks to finish when the worker is shutdown
+- [ ] Nicer API design
+- [ ] Documentation
+- [ ] Tests
+- [ ] `BEAT` statuses (quiet and terminate)
+- [ ] Django integration (`./manage.py runworker` and a nice way to register tasks)
+- [ ] Connection failure / timeout handling
+- [ ] Graceful worker shutdown
+- [ ] Context manager for the `Client` class
+- [ ] Other concurrency methods (eventlets? threads?)
 
 ### Authentication
 
