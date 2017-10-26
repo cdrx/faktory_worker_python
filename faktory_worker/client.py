@@ -24,9 +24,6 @@ class Client:
     labels = ['python']
     queues = ['default']
 
-    tls_keyfile = "~/.faktory/tls/private.key"
-    tls_cert = "~/.faktory/tls/public.crt"
-
     def __init__(self, host="127.0.0.1", port=7419, password=None):
         self.host = host
         self.port = port
@@ -39,9 +36,7 @@ class Client:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.password and self.tls_cert and self.tls_keyfile:
             # TODO: what does this raise?
-            self.socket = ssl.wrap_socket(self.socket,
-                                          keyfile=os.path.expanduser(self.tls_keyfile),
-                                          certfile=os.path.expanduser(self.tls_cert))
+            self.socket = ssl.wrap_socket(self.socket)
 
         self.socket.settimeout(self.timeout)
         try:

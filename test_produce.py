@@ -1,10 +1,11 @@
+import time
+
 from faktory_worker import Client
 
-c = Client()
+c = Client(host="faktory")
 
 c.connect()
 
-for x in range(1, 5):
-    print(c.publish("test", args=[1, 2, 3]))
-
-c.disconnect()
+while True:
+    c.publish("test", args=[1, 2, 3])
+    time.sleep(0.5)

@@ -23,15 +23,6 @@ You can pass `password="secret"` to the `Worker()` and `Client()` constructor, l
 worker = Worker(host="server", port=7418, password="secret")
 ```
 
-You'll also need the correct TLS key / certificate to connect to the server. If they are in `~/.faktory/tls` then they 
-will be picked up automatically, otherwise you can specify them on the Worker instance:
-
-```
-worker = Worker(host="server", port=7418, password="secret")
-worker.tls_keyfile = "path/to/private.key"
-worker.tls_cert = "path/to/public.crt"
-```
-
 ### Examples
 
 Sample worker:
