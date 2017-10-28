@@ -20,21 +20,24 @@ class Client:
     buffer_size = 4096
     timeout = 5
     is_connected = False
-    send_heartbeat_every = 15
+    send_heartbeat_every = 1
     labels = ['python']
     queues = ['default']
 
-    def __init__(self, host="127.0.0.1", port=7419, password=None):
+    def __init__(self, host="127.0.0.1", port=7419, password=None, queues=None):
         self.host = host
         self.port = port
         self.password = password
+
+        if queues is not None:
+            self.queues = queues
 
         self._pending_acks = list()
         self._pending_fails = list()
 
     def connect(self) -> bool:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        if self.password and self.tls_cert and self.tls_keyfile:
+        if self.password:
             # TODO: what does this raise?
             self.socket = ssl.wrap_socket(self.socket)
 
