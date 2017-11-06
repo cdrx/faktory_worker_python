@@ -33,7 +33,7 @@ worker = Worker(host="server", port=7418, password="secret")
 
 Sample worker:
 ```
-from faktory_worker import Worker
+from faktory.worker import Worker
 
 
 def do_some_work(*args):
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 To push a job to Faktory from Python:
 
 ```
-from faktory_worker import Client
+from faktory.client import Client
 
 c = Client()
 c.connect()
