@@ -1,7 +1,9 @@
+__ALL__ = ['FaktoryHandshakeError', 'FaktoryAuthenticationError']
 
-class HandshakeError(ConnectionError):
+
+class FaktoryHandshakeError(ConnectionError):
     pass
 
 
-class AuthenticationError(ConnectionError):
+class FaktoryAuthenticationError(ConnectionError):
     pass
