@@ -59,7 +59,7 @@ import faktory
 
 with faktory.connection() as client:
     client.queue('test', args=(1, 2))
-	client.queue('test', args=(4, 5), queue='other')
+    client.queue('test', args=(4, 5), queue='other')
 ```
 
 `test` doesn't need to be implemented by the Python worker, it can be any of the available worker implementations.
