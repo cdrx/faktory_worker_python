@@ -143,7 +143,6 @@ class Connection:
                                 data = buffer
                                 while len(data) != number_of_bytes:
                                     bytes_required = number_of_bytes - len(data)
-                                    self.log.info("Waiting for %d bytes", bytes_required)
                                     data += socket.recv(bytes_required)
                                 buffer = []
                             resp = data.decode().strip("\r\n ")
