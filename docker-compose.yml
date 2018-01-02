@@ -2,32 +2,8 @@ version: "3"
 
 services:
   faktory:
-    image: contribsys/faktory:0.5.0
-    command: -b 0.0.0.0:7419 -no-tls
+    image: contribsys/faktory:latest
+    command: -b 0.0.0.0:7419
     ports:
       - 7419:7419
       - 7420:7420
-
-  # producer makes some busy work...
-  producer:
-    image: python:3.6-alpine
-    volumes:
-      - ".:/src"
-    working_dir: /src
-    environment:
-      - PYTHONUNBUFFERED=1
-    command: python test_produce.py
-    depends_on:
-      - faktory
-
-  # ...and the worker consumes it
-  worker:
-    image: python:3.6-alpine
-    volumes:
-      - ".:/src"
-    working_dir: /src
-    environment:
-      - PYTHONUNBUFFERED=1
-    command: python test_consume.py
-    depends_on:
-      - faktory
