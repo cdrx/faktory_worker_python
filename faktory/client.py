@@ -53,7 +53,10 @@ class Client:
             request['custom'] = custom
 
         if args is not None:
-            request['args'] = args
+            if not isinstance(args, (typing.Iterator, typing.Set, typing.List, typing.Tuple)):
+                raise ValueError("Argument `args` must be an iterator, generator, list, tuple or a set")
+
+            request['args'] = list(args)
 
         if reserve_for is not None:
             request['reserve_for'] = reserve_for
