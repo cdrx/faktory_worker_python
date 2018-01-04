@@ -65,6 +65,7 @@ class Worker:
         self._tasks = dict()
         self._pending = list()
         self._disconnect_after = None
+        self._executor = None
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
@@ -332,7 +333,9 @@ class Worker:
         :return: executor instance
         :rtype: concurrent.futures.Executor
         """
-        return self._executor_class(max_workers=self.concurrency)
+        if self._executor is None:
+            self._executor = self._executor_class(max_workers=self.concurrency)
+        return self._executor
 
     def get_queues(self) -> Iterable:
         """
