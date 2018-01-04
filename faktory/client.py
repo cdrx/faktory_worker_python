@@ -46,7 +46,8 @@ class Client:
         request = {
             'jid': jid,
             'queue': queue,
-            'jobtype': task
+            'jobtype': task,
+            'priority': priority
         }
 
         if custom is not None:
