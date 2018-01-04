@@ -10,6 +10,7 @@ Requires Python 3.5+.
 
 :x: 0.5.0 <br/>
 :white_check_mark: 0.6.0+
+:white_check_mark: 0.7.0
 
 ## Features
 
