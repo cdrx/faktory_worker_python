@@ -9,13 +9,13 @@ Requires Python 3.5+.
 #### Supported Faktory Versions
 
 :x: 0.5.0 <br/>
-:white_check_mark: 0.6.0+
+:white_check_mark: 0.6.0+ <br/>
 :white_check_mark: 0.7.0
 
 ## Features
 
 - [x] Creating a worker to run jobs from Faktory
-- [x] Concurrency (with multiple processes via the `multiprocessing` module)
+- [x] Concurrency (with multiple processes or threads with the `use_threads=True` option)
 - [x] Pushing work to Faktory from Python (with retries, custom metadata and scheduled support)
 - [x] Pushing exception / errors from Python back up to Faktory
 - [x] Sends worker status back to Faktory
@@ -29,7 +29,6 @@ Requires Python 3.5+.
 - [ ] Documentation (in progress, help would be appreciated)
 - [ ] Tests (in progress, help would be appreciated)
 - [ ] Django integration (`./manage.py runworker` and `app/tasks.py` support)
-- [ ] Other concurrency methods (eventlets? threads?)
 
 ## Installation
 
