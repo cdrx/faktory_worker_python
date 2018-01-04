@@ -55,11 +55,14 @@ class Worker:
         :type log: logging.Logger
         :param labels: labels to show in the Faktory webui for this worker
         :type labels: tuple
+        :param pool_implementation: Set the class of the process pool that will be used. By default multiprocessing.Pool is used.
+        :type pool_implementation: class
         """
         self.concurrency = kwargs.pop('concurrency', 1)
         self.log = kwargs.pop('log', logging.getLogger('faktory.worker'))
 
         self._queues = kwargs.pop('queues', ['default', ])
+        self._poolClass = kwargs.pop('pool_implementation', Pool)
         self._pool = None
         self._last_heartbeat = None
         self._tasks = dict()
@@ -136,7 +139,7 @@ class Worker:
             self.faktory.connect(worker_id=self.worker_id)
 
         self.log.debug("Creating a worker pool of {} processes".format(self.concurrency))
-        self._pool = Pool(processes=self.concurrency, initializer=pool_processs_init)
+        self._pool = self._poolClass(processes=self.concurrency, initializer=pool_processs_init)
         self._last_heartbeat = datetime.now() + timedelta(
             seconds=self.send_heartbeat_every)  # schedule a heartbeat for the future
 
