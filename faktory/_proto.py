@@ -52,7 +52,7 @@ class Connection:
         self.log = log or logging.getLogger(name='faktory.connection')
 
     def connect(self, worker_id: str=None) -> bool:
-        self.log.info("Connecting to {}:{}".format(self.host, self.password))
+        self.log.info("Connecting to {}:{} (with password {})".format(self.host, self.port, self.password))
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.use_tls:
