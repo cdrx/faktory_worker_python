@@ -6,17 +6,12 @@ import uuid
 import time
 
 from datetime import datetime, timedelta
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
 
 from ._proto import Connection
-
-
-def pool_processs_init():
-    # ignore SIGINT inside the pool processes, so we can trap KeyboardException in the worker process and manage the
-    # polite shutdown of the worker from there
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 Task = namedtuple('Task', ['name', 'func', 'bind'])
@@ -55,11 +50,14 @@ class Worker:
         :type log: logging.Logger
         :param labels: labels to show in the Faktory webui for this worker
         :type labels: tuple
+        :param executor: Set the class of the process executor that will be used. By default concurrenct.futures.ProcessPoolExecutor is used.
+        :type executor: class
         """
         self.concurrency = kwargs.pop('concurrency', 1)
         self.log = kwargs.pop('log', logging.getLogger('faktory.worker'))
 
         self._queues = kwargs.pop('queues', ['default', ])
+        self._executor = kwargs.pop('executor', ProcessPoolExecutor)
         self._pool = None
         self._last_heartbeat = None
         self._tasks = dict()
@@ -136,7 +134,7 @@ class Worker:
             self.faktory.connect(worker_id=self.worker_id)
 
         self.log.debug("Creating a worker pool of {} processes".format(self.concurrency))
-        self._pool = Pool(processes=self.concurrency, initializer=pool_processs_init)
+        self._initialize_pool()
         self._last_heartbeat = datetime.now() + timedelta(
             seconds=self.send_heartbeat_every)  # schedule a heartbeat for the future
 
@@ -155,7 +153,7 @@ class Worker:
                 if self.is_disconnecting:
                     break
 
-                self._pool.close()
+                self._pool.shutdown(wait=False)
                 self.log.info("Shutdown: waiting up to 15 seconds for workers to finish current tasks")
                 self.disconnect(wait=15)
 
@@ -164,8 +162,7 @@ class Worker:
             self.disconnect(force=True)
 
         self.log.debug("Waiting for worker processes to quit")
-        self._pool.close()
-        self._pool.join()
+        self._pool.shutdown(wait=True)
 
     def send_all_pending_acks(self):
         """
@@ -254,12 +251,15 @@ class Worker:
             # faktory.fetch() blocks for 2s, but if we are not fetching jobs then we need to add a delay or this process will spin
             time.sleep(0.25)
 
-    def _process(self, jid: str, job: str, args):
-        def ack(*a):
-            self._ack(jid)
+    def _initialize_pool(self):
+        self._pool = self._executor(max_workers=self.concurrency)
 
-        def err(err):
-            self._fail(jid, exception=err)
+    def _process(self, jid: str, job: str, args):
+        def job_finished_callback(future):
+            if future.exception():
+                self._fail(jid, exception=future.exception())
+            else:
+                self._ack(jid)
 
         try:
             self._pending_jids.append(jid)
@@ -271,7 +271,11 @@ class Worker:
 
             self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
 
-            self._pool.apply_async(task.func, args=args, callback=ack, error_callback=err)
+            future = self._pool.submit(task.func, *args)
+            future.add_done_callback(job_finished_callback)
+        except (BrokenProcessPool) as e:
+            self._fail(jid, exception=e)
+            self._initialize_pool()
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
 
