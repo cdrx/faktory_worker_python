@@ -1,12 +1,11 @@
 from typing import Iterable
 
-import signal
 import logging
 import uuid
 import time
 
 from datetime import datetime, timedelta
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
@@ -50,6 +49,8 @@ class Worker:
         :type log: logging.Logger
         :param labels: labels to show in the Faktory webui for this worker
         :type labels: tuple
+        :param use_threads: Set to True to use threads rather than multiple processes for work to be executed on
+        :type use_threads: bool
         :param executor: Set the class of the process executor that will be used. By default concurrenct.futures.ProcessPoolExecutor is used.
         :type executor: class
         """
@@ -57,7 +58,7 @@ class Worker:
         self.log = kwargs.pop('log', logging.getLogger('faktory.worker'))
 
         self._queues = kwargs.pop('queues', ['default', ])
-        self._executor = kwargs.pop('executor', ProcessPoolExecutor)
+        self._executor_class = kwargs.pop('executor', ThreadPoolExecutor if kwargs.get('use_threads', False) else ProcessPoolExecutor)
         self._pool = None
         self._last_heartbeat = None
         self._tasks = dict()
@@ -252,7 +253,7 @@ class Worker:
             time.sleep(0.25)
 
     def _initialize_pool(self):
-        self._pool = self._executor(max_workers=self.concurrency)
+        self._pool = self._executor_class(max_workers=self.concurrency)
 
     def _process(self, jid: str, job: str, args):
         def job_finished_callback(future):
