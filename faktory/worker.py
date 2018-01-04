@@ -3,9 +3,11 @@ from typing import Iterable
 import logging
 import uuid
 import time
+import sys
+import signal
 
 from datetime import datetime, timedelta
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
 from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
@@ -58,14 +60,13 @@ class Worker:
         self.log = kwargs.pop('log', logging.getLogger('faktory.worker'))
 
         self._queues = kwargs.pop('queues', ['default', ])
-        self._executor_class = kwargs.pop('executor', ThreadPoolExecutor if kwargs.get('use_threads', False) else ProcessPoolExecutor)
-        self._pool = None
+        self._executor_class = kwargs.pop('executor', ThreadPoolExecutor if kwargs.pop('use_threads', False) else ProcessPoolExecutor)
         self._last_heartbeat = None
         self._tasks = dict()
-        self._pending_acks = list()
-        self._pending_fails = list()
-        self._pending_jids = list()
+        self._pending = list()
         self._disconnect_after = None
+
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         if 'labels' not in kwargs:
             kwargs['labels'] = ['python']
@@ -76,6 +77,7 @@ class Worker:
         self.worker_id = kwargs['worker_id']
 
         self.faktory = Connection(*args, **kwargs)
+        #self.faktory.debug = True
 
     def register(self, name, func, bind=False):
         """
@@ -134,27 +136,25 @@ class Worker:
         if not self.faktory.is_connected:
             self.faktory.connect(worker_id=self.worker_id)
 
-        self.log.debug("Creating a worker pool of {} processes".format(self.concurrency))
-        self._initialize_pool()
-        self._last_heartbeat = datetime.now() + timedelta(
-            seconds=self.send_heartbeat_every)  # schedule a heartbeat for the future
+        self.log.debug("Creating a worker pool with concurrency of {}".format(self.concurrency))
+
+        self._last_heartbeat = datetime.now() + timedelta(seconds=self.send_heartbeat_every)  # schedule a heartbeat for the future
 
         self.log.info("Queues: {}".format(", ".join(self.get_queues())))
         self.log.info("Labels: {}".format(", ".join(self.faktory.labels)))
 
         while True:
             try:
-                # tick runs continiously to process events from the faktory connection
+                # tick runs continuously to process events from the faktory connection
                 self.tick()
                 if not self.faktory.is_connected:
                     break
-            except KeyboardInterrupt:
+            except KeyboardInterrupt as e:
                 # 1st time through: soft close, wait 15 seconds for jobs to finish and send the work results to faktory
                 # 2nd time through: force close, don't wait, fail all current jobs and quit as quickly as possible
                 if self.is_disconnecting:
                     break
 
-                self._pool.shutdown(wait=False)
                 self.log.info("Shutdown: waiting up to 15 seconds for workers to finish current tasks")
                 self.disconnect(wait=15)
 
@@ -162,70 +162,35 @@ class Worker:
             self.log.warning("Forcing worker processes to shutdown...")
             self.disconnect(force=True)
 
-        self.log.debug("Waiting for worker processes to quit")
-        self._pool.shutdown(wait=True)
+        self.executor.shutdown(wait=False)
+        sys.exit(1)
 
-    def send_all_pending_acks(self):
-        """
-        Collects all recently completed tasks and sends a successful job status to the Faktory server
-
-        :return:
-        :rtype:
-        """
-        while len(self._pending_acks):
-            jid = self._pending_acks.pop()
-            self.faktory.reply("ACK", {'jid': jid})
-            ok = next(self.faktory.get_message())
-
-    def send_all_pending_fails(self):
-        """
-        Collects any recently finished tasks that failed, and sends them back to Faktory to be requeued.
-
-        :return:
-        :rtype:
-        """
-        while len(self._pending_fails):
-            jid, exc, msg = self._pending_fails.pop()
-            response = {
-                'jid': jid
-            }
-            if exc:
-                response['errtype'] = exc
-            if msg:
-                response['message'] = msg
-
-            self.faktory.reply("FAIL", response)
-            ok = next(self.faktory.get_message())
-
-    def disconnect(self, force: bool = False, wait=30):
+    def disconnect(self, force=False, wait=30):
         """
         Disconnect from the Faktory server and shutdown this worker.
 
-        The default is to shutdown gracefully, allowing 30s for in progress tasks to complete and update Faktory.
+        The default is to shutdown gracefully, allowing 15s for in progress tasks to complete and update Faktory.
 
         :param force: Immediate shutdown, cancelling running tasks
         :type force: bool
         :param wait: Graceful shutdown, allowing `wait` seconds for in progress jobs to complete
-        :type wait:
+        :type wait: int
         :return:
         :rtype:
         """
         self.log.debug("Disconnecting from Faktory, force={} wait={}".format(force, wait))
-        self.is_quiet = self.is_disconnecting = True
+
+        self.is_quiet = True
+        self.is_disconnecting = True
         self._disconnect_after = datetime.now() + timedelta(seconds=wait)
 
         if force:
-            # TODO: force a FAIL for jobs currently being processed
-            self.send_all_pending_acks()
-            self.send_all_pending_fails()
+            self.fail_all_jobs()
             self.faktory.disconnect()
 
     def tick(self):
-        if self._pending_acks:
-            self.send_all_pending_acks()
-
-        if self._pending_fails:
-            self.send_all_pending_fails()
+        if self._pending:
+            self.send_status_to_faktory()
 
         if self.should_send_heartbeat:
             self.heartbeat()
@@ -252,62 +217,70 @@ class Worker:
             # faktory.fetch() blocks for 2s, but if we are not fetching jobs then we need to add a delay or this process will spin
             time.sleep(0.25)
 
-    def _initialize_pool(self):
-        self._pool = self._executor_class(max_workers=self.concurrency)
+    def send_status_to_faktory(self):
+        for future in self._pending:
+            if future.done():
+                self._pending.remove(future)
+                try:
+                    future.result(timeout=1)
+                    self._ack(future.job_id)
+                except BrokenProcessPool:
+                    self._fail(future.job_id)
+                except KeyboardInterrupt:
+                    self._fail(future.job_id)
+                except Exception as e:
+                    self._fail(future.job_id, exception=e)
+                    self.log.exception("Task failed: {}".format(future.job_id))
 
     def _process(self, jid: str, job: str, args):
-        def job_finished_callback(future):
-            if future.exception():
-                self._fail(jid, exception=future.exception())
-            else:
-                self._ack(jid)
-
         try:
-            self._pending_jids.append(jid)
-
             task = self.get_registered_task(job)
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
 
             self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
-
-            future = self._pool.submit(task.func, *args)
-            future.add_done_callback(job_finished_callback)
-        except (BrokenProcessPool) as e:
-            self._fail(jid, exception=e)
-            self._initialize_pool()
+            future = self.executor.submit(task.func, *args)
+            future.job_id = jid
+            self._pending.append(future)
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
 
     def _ack(self, jid: str):
-        try:
-            self._pending_jids.remove(jid)
-        except ValueError:
-            pass
-
-        self._pending_acks.append(jid)
+        self.faktory.reply("ACK", {'jid': jid})
+        ok = next(self.faktory.get_message())
 
     def _fail(self, jid: str, exception=None):
-        try:
-            self._pending_jids.remove(jid)
-        except ValueError:
-            pass
-
+        response = {
+            'jid': jid
+        }
         if exception is not None:
-            self.log.exception("Task failed: {}".format(jid))
-            self._pending_fails.append((jid, type(exception).__name__, str(exception)))
-        else:
-            self.log.error("Task failed: {}".format(jid))
-            self._pending_fails.append((jid, None, None))
+            response['errtype'] = type(exception).__name__
+            response['message'] = str(exception)
+
+        self.faktory.reply("FAIL", response)
+        ok = next(self.faktory.get_message())
+
+    def fail_all_jobs(self):
+        for future in self._pending:
+            if future.done():
+                self._ack(future.job_id)
+                continue
+
+            # force the job to fail
+            future.cancel()
+            self._fail(future.job_id)
+
+    def handle_sigterm(self, signal, frame):
+        raise KeyboardInterrupt
 
     @property
     def should_fetch_job(self) -> bool:
-        return not (self.is_disconnecting or self.is_quiet) and len(self._pending_jids) < self.concurrency
+        return not (self.is_disconnecting or self.is_quiet) and len(self._pending) < self.concurrency
 
     @property
     def can_disconnect(self):
-        return len(self._pending_acks) == 0 and len(self._pending_fails) == 0 and len(self._pending_jids) == 0
+        return len(self._pending) == 0
 
     @property
     def should_send_heartbeat(self) -> bool:
@@ -346,6 +319,20 @@ class Worker:
                         "Faktory has asked this worker to shutdown, will cancel any pending tasks still running 25s time")
                 self.disconnect(wait=25)
         self._last_heartbeat = datetime.now()
+
+    @property
+    def executor(self) -> Executor:
+        """
+        Return the concurrent.futures executor instance to use for this worker.
+
+        Can be passed via the `executor` argument to `__init__` or set `use_threads=True` to use the Threaded executor.
+
+        The worker will use a process based executor by default.
+
+        :return: executor instance
+        :rtype: concurrent.futures.Executor
+        """
+        return self._executor_class(max_workers=self.concurrency)
 
     def get_queues(self) -> Iterable:
         """
