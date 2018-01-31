@@ -167,11 +167,12 @@ class Connection:
     def reply(self, cmd, data=None):
         if self.debug: self.log.debug("< {} {}".format(cmd, data or ""))
         s = cmd
-        if data is not None:
-            if type(data) is dict:
-                s = "{} {}".format(s, json.dumps(data))
-            else:
-                s = "{} {}".format(s, data)
+        if not data:
+            return
+        if isinstance(data, dict):
+            s = "{} {}".format(s, json.dumps(data))
+        else:
+            s = "{} {}".format(s, data)
         self.socket.send(str.encode(s + "\r\n"))
 
     def disconnect(self):
