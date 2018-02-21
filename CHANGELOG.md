@@ -1,4 +1,4 @@
-# Faktory Worker Python Change Log
+# [Changelog](https://github.com/cdrx/faktory_worker_python/releases)
 
 All notable changes to this project will be documented in this file.
 
@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 -
 
 
-## 0.4 - 2018-02-21
+## 0.4.0 - 2018-02-21
 
 - Added support for job priorities
 - Added validation if args isn't something faktory will accept
