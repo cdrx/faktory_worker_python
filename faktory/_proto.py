@@ -10,7 +10,7 @@ import ssl
 
 from urllib.parse import urlparse
 
-from . exceptions import FaktoryHandshakeError, FaktoryAuthenticationError
+from .exceptions import FaktoryHandshakeError, FaktoryAuthenticationError
 
 
 class Connection:
@@ -51,7 +51,7 @@ class Connection:
 
         self.log = log or logging.getLogger(name='faktory.connection')
 
-    def connect(self, worker_id: str=None) -> bool:
+    def connect(self, worker_id: str = None) -> bool:
         self.log.info("Connecting to {}:{}".format(self.host, self.port))
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

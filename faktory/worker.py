@@ -14,7 +14,6 @@ from collections import namedtuple
 
 from ._proto import Connection
 
-
 Task = namedtuple('Task', ['name', 'func', 'bind'])
 
 
@@ -78,7 +77,7 @@ class Worker:
         self.worker_id = kwargs['worker_id']
 
         self.faktory = Connection(*args, **kwargs)
-        #self.faktory.debug = True
+        # self.faktory.debug = True
 
     def register(self, name, func, bind=False):
         """
