@@ -201,9 +201,9 @@ class Worker:
             else:
                 middleFunction()
 
-    def middleware(self, functionName, *args):
-        if not functionName in self._middleware
-            self._middleware[functionName] = args
+    def middleware(self, middleware_function, *args):
+        if middleware_function not in self._middleware
+            self._middleware[middleware_function] = args
 
     def tick(self):
         if self._pending:
