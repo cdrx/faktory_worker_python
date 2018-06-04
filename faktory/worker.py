@@ -65,6 +65,7 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
+        self._middleware = dict()
         self._disconnect_after = None
         self._executor = None
 
@@ -190,14 +191,19 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
-    def middleware(self, jobId, jobType, jobArgs):
-        # define middleware funtionality
-        if jobType == 'AdBlobsPuller':
-            self.log.info("jobtype = {}".format(jobType))
+    def _call_middleware(self, jobId, jobType, jobArgs):
 
-        else:
-            self.log.info("another type of job is running")
+        #iterate through all middleware functions
+        #call middleware functions for each key/pair value
+        for middleFunction, args in self._middleware.items():
+            if args:
+                middleFunction(args)
+            else:
+                middleFunction()
 
+    def middleware(self, functionName, *args):
+        if functionName not in self._middleware
+            self._middleware[functionName] = args
 
     def tick(self):
         if self._pending:
@@ -213,7 +219,7 @@ class Worker:
                 jid = job.get('jid')
                 func = job.get('jobtype')
                 args = job.get('args')
-                self.middleware(jid, func, args)
+                self._call_middleware(jid, func, args)
 
                 self._process(jid, func, args)
         else:
