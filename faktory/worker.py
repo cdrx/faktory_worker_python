@@ -209,6 +209,10 @@ class Worker:
         if middleware_function not in self._middleware:
             self._middleware[middleware_function] = args
 
+    def remove_middleware(self, middleware_function):
+        if middleware_function in self._middleware:
+            del self._middleware[middleware_function]
+
     def tick(self):
         if self._pending:
             self.send_status_to_faktory()
