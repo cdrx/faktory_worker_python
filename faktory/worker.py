@@ -193,7 +193,7 @@ class Worker:
 
     def middleware(self, jobId, jobType, jobArgs):
         # define middleware funtionality
-        if jid == 'AdBlobsPuller':
+        if jobType == 'AdBlobsPuller':
             self.log.info("jobtype = {}".format(jobType))
 
 
