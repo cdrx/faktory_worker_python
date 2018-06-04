@@ -195,11 +195,11 @@ class Worker:
 
         #iterate through all middleware functions
         #call middleware functions for each key/pair value
-        for middleFunction, args in self._middleware.items():
+        for middleware_function, args in self._middleware.items():
             if args:
-                middleFunction(args)
+                middleware_function(args)
             else:
-                middleFunction()
+                middleware_function()
 
     def middleware(self, middleware_function, *args):
         #if the function is already registered within the middleware
