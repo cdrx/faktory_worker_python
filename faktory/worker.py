@@ -198,7 +198,7 @@ class Worker:
         for middleware_function in self._middleware:
             middleware_function(jobId, jobType, jobArgs)
 
-    def middleware(self, middleware_function):
+    def middleware_reg(self, middleware_function):
         #if the function is already registered within the middleware
         #then ignore it to rewrite the assignment
 
