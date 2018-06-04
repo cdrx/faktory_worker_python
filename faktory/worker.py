@@ -5,6 +5,7 @@ import uuid
 import time
 import sys
 import signal
+import pdb
 
 from datetime import datetime, timedelta
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
@@ -13,6 +14,8 @@ from concurrent.futures.process import BrokenProcessPool
 from collections import namedtuple
 
 from ._proto import Connection
+
+#from stalker import catalog
 
 Task = namedtuple('Task', ['name', 'func', 'bind'])
 
@@ -188,6 +191,12 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
+    def middleware(self, jobId, jobType, jobArgs):
+        # define middleware funtionality
+        if jid == 'AdBlobsPuller':
+            self.log.info("jobtype = {}".format(jobType))
+
+
     def tick(self):
         if self._pending:
             self.send_status_to_faktory()
@@ -202,6 +211,8 @@ class Worker:
                 jid = job.get('jid')
                 func = job.get('jobtype')
                 args = job.get('args')
+                self.middleware(jid, func, args)
+
                 self._process(jid, func, args)
         else:
             if self.is_disconnecting:
@@ -238,13 +249,21 @@ class Worker:
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
+                pdb.set_trace()
 
             self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
+
+            #alert the user that the process has finished executing
+            #alerts: jid, jobtype, userid, finished
+
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
+
+            #alert the user that the process has encountered an error and is aborting
+            #alerts: jid, jobtype, userid, error
 
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
