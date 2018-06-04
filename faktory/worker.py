@@ -202,7 +202,7 @@ class Worker:
                 middleFunction()
 
     def middleware(self, middleware_function, *args):
-        if middleware_function not in self._middleware
+        if middleware_function not in self._middleware:
             self._middleware[middleware_function] = args
 
     def tick(self):
