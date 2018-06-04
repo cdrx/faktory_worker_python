@@ -65,7 +65,7 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._middleware = dict()
+        self._middleware = list()
         self._disconnect_after = None
         self._executor = None
 
@@ -195,23 +195,20 @@ class Worker:
 
         #iterate through all middleware functions
         #call middleware functions for each key/pair value
-        for middleware_function, args in self._middleware.items():
-            if args:
-                middleware_function(args)
-            else:
-                middleware_function()
+        for middleware_function in self._middleware:
+            middleware_function(jobId, jobType, jobArgs)
 
-    def middleware(self, middleware_function, *args):
+    def middleware(self, middleware_function):
         #if the function is already registered within the middleware
         #then ignore it to rewrite the assignment
 
         #remove this line to overwrite functions
         if middleware_function not in self._middleware:
-            self._middleware[middleware_function] = args
+            self._middleware.append(middleware_function)
 
     def remove_middleware(self, middleware_function):
         if middleware_function in self._middleware:
-            del self._middleware[middleware_function]
+            self._middleware.remove(middleware_function)
 
     def tick(self):
         if self._pending:
