@@ -5,7 +5,6 @@ import uuid
 import time
 import sys
 import signal
-import pdb
 
 from datetime import datetime, timedelta
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
@@ -196,6 +195,9 @@ class Worker:
         if jobType == 'AdBlobsPuller':
             self.log.info("jobtype = {}".format(jobType))
 
+        else:
+            self.log.info("another type of job is running")
+
 
     def tick(self):
         if self._pending:
@@ -249,7 +251,6 @@ class Worker:
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
-                pdb.set_trace()
 
             self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
             future = self.executor.submit(task.func, *args)
