@@ -202,6 +202,10 @@ class Worker:
                 middleFunction()
 
     def middleware(self, middleware_function, *args):
+        #if the function is already registered within the middleware
+        #then ignore it to rewrite the assignment
+
+        #remove this line to overwrite functions
         if middleware_function not in self._middleware:
             self._middleware[middleware_function] = args
 
