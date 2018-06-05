@@ -192,7 +192,6 @@ class Worker:
             self.faktory.disconnect()
 
     def _call_middleware(self, jobId, jobType, jobArgs):
-
         #iterate through all middleware functions
         #call middleware functions for each item in the list
         for middleware_function, function_args in self._middleware.items():
@@ -205,7 +204,7 @@ class Worker:
 
     def remove_middleware(self, middleware_function):
         if middleware_function in self._middleware:
-            self._middleware.remove(middleware_function)
+            del self._middleware[middleware_function]
 
     def tick(self):
         if self._pending:
