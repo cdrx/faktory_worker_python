@@ -14,8 +14,6 @@ from collections import namedtuple
 
 from ._proto import Connection
 
-#from stalker import catalog
-
 Task = namedtuple('Task', ['name', 'func', 'bind'])
 
 
@@ -193,13 +191,12 @@ class Worker:
 
     def _call_middleware(self, jobId, jobType, jobArgs):
         #iterate through all middleware functions
-        #call middleware functions for each item in the list
+        #call each middleware function in the dict
         for middleware_function, function_args in self._middleware.items():
             middleware_function(jobId, jobType, jobArgs, *function_args)
 
     def middleware_reg(self, middleware_function, *args):
-        #"register" middleware by adding it to a hash where
-        #the function name is the key and the args represent the value
+        #"register" middleware by adding it and its args to a dict()
         self._middleware[middleware_function] = args
 
     def remove_middleware(self, middleware_function):
@@ -220,7 +217,9 @@ class Worker:
                 jid = job.get('jid')
                 func = job.get('jobtype')
                 args = job.get('args')
-                self._call_middleware(jid, func, args)
+
+                if self._middleware:
+                    self._call_middleware(jid, func, args)
 
                 self._process(jid, func, args)
         else:
@@ -264,14 +263,8 @@ class Worker:
             future.job_id = jid
             self._pending.append(future)
 
-            #alert the user that the process has finished executing
-            #alerts: jid, jobtype, userid, finished
-
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
-
-            #alert the user that the process has encountered an error and is aborting
-            #alerts: jid, jobtype, userid, error
 
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
