@@ -196,18 +196,12 @@ class Worker:
         #iterate through all middleware functions
         #call middleware functions for each item in the list
         for middleware_function, function_args in self._middleware.items():
-            if function_args:
-                middleware_function(jobId, jobType, jobArgs, *function_args)
-            else:
-                middleware_function(jobId, jobType, jobArgs)
+            middleware_function(jobId, jobType, jobArgs, *function_args)
 
     def middleware_reg(self, middleware_function, *args):
-        #if the function is already registered within the middleware
-        #then ignore it to rewrite the assignment
-
-        #remove this line to overwrite functions
-        if middleware_function not in self._middleware:
-            self._middleware[middleware_function] = args
+        #"register" middleware by adding it to a hash where
+        #the function name is the key and the args represent the value
+        self._middleware[middleware_function] = args
 
     def remove_middleware(self, middleware_function):
         if middleware_function in self._middleware:
