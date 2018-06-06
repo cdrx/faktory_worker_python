@@ -7,10 +7,10 @@ def test_function(x,y):
     return x+y
 
 
-def middleware_function(a, b, c):
-    logging.info(a)
-    logging.info(b)
-    logging.info(c)
+def middleware_function(jobId, jobType, jobArgs):
+    logging.info(jobId)
+    logging.info(jobType)
+    logging.info(jobArgs)
 
 w = faktory.Worker(faktory="tcp://localhost:7419",  queues=['default'], concurrency=1)
 
