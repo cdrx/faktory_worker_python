@@ -269,6 +269,7 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
+        self.log.info(ok)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -280,6 +281,7 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
+        self.log.info(ok)
 
     def fail_all_jobs(self):
         for future in self._pending:
