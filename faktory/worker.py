@@ -63,7 +63,8 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._middleware = dict()
+        self._client_middleware = dict()
+        self._server_middleware = dict()
         self._disconnect_after = None
         self._executor = None
 
@@ -189,19 +190,23 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
-    def _call_middleware(self, jobId, jobType, jobArgs):
+    def _call_client_middleware(self, jobId, jobType, jobArgs):
         #iterate through all middleware functions
         #call each middleware function in the dict
-        for middleware_function, function_args in self._middleware.items():
+        for middleware_function, function_args in self._client_middleware.items():
             middleware_function(jobId, jobType, jobArgs, *function_args)
 
-    def middleware_reg(self, middleware_function, *args):
+    def client_middleware_reg(self, middleware_function, *args):
         #"register" middleware by adding it and its args to a dict()
-        self._middleware[middleware_function] = args
+        self._client_middleware[middleware_function] = args
 
-    def remove_middleware(self, middleware_function):
-        if middleware_function in self._middleware:
-            del self._middleware[middleware_function]
+    def server_middleware_reg(self, middleware_function, *args):
+        #"register" middleware by adding it and its args to a dict()
+        self._server_middleware[middleware_function] = args
+
+    def _call_server_middleware(self, jobId, status):
+        for middleware_function, function_args in self._server_middleware.items():
+            middleware_function(jobId, status, *function_args)
 
     def tick(self):
         if self._pending:
@@ -219,7 +224,7 @@ class Worker:
                 args = job.get('args')
 
                 if self._middleware:
-                    self._call_middleware(jid, func, args)
+                    self._call_client_middleware(jid, func, args)
 
                 self._process(jid, func, args)
         else:
@@ -242,7 +247,7 @@ class Worker:
                 self._pending.remove(future)
                 try:
                     future.result(timeout=1)
-                    self._ack(future.job_id)
+                    self.(future.job_id)
                 except BrokenProcessPool:
                     self._fail(future.job_id)
                 except KeyboardInterrupt:
@@ -269,7 +274,7 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        self.log.info(ok)
+        _call_server_middleware(jid, "finished")
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -281,7 +286,7 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        self.log.info(ok)
+        _call_server_middleware(jid, "failed")
 
     def fail_all_jobs(self):
         for future in self._pending:
