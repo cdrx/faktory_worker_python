@@ -223,7 +223,7 @@ class Worker:
                 func = job.get('jobtype')
                 args = job.get('args')
 
-                if self._middleware:
+                if self._client_middleware:
                     self._call_client_middleware(jid, func, args)
 
                 self._process(jid, func, args)
