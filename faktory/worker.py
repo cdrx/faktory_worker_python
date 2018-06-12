@@ -11,6 +11,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
 from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
+from collections import OrderedDict
 
 from ._proto import Connection
 
@@ -63,8 +64,8 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._client_middleware = dict()
-        self._server_middleware = dict()
+        self._client_middleware = OrderedDict()
+        self._server_middleware = OrderedDict()
         self._disconnect_after = None
         self._executor = None
 
@@ -271,7 +272,7 @@ class Worker:
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
         if self._server_middleware:
-            self._call_server_middleware(jid, "finished", None)
+            self._call_server_middleware(jid, True, None)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -284,7 +285,7 @@ class Worker:
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
         if self._server_middleware:
-            self._call_server_middleware(jid, "failed", exception)
+            self._call_server_middleware(jid, False, exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
