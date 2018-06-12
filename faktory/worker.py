@@ -191,17 +191,13 @@ class Worker:
             self.faktory.disconnect()
 
     def _call_client_middleware(self, jobId, jobType, jobArgs):
-        #iterate through all middleware functions
-        #call each middleware function in the dict
         for middleware_function, function_args in self._client_middleware.items():
             middleware_function(jobId, jobType, jobArgs, *function_args)
 
     def client_middleware_reg(self, middleware_function, *args):
-        #"register" middleware by adding it and its args to a dict()
         self._client_middleware[middleware_function] = args
 
     def server_middleware_reg(self, middleware_function, *args):
-        #"register" middleware by adding it and its args to a dict()
         self._server_middleware[middleware_function] = args
 
     def _call_server_middleware(self, jobId, status, exception = None):
@@ -274,7 +270,8 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        self._call_server_middleware(jid, "finished", None)
+        if self._server_middleware:
+            self._call_server_middleware(jid, "finished", None)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -286,7 +283,8 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        self._call_server_middleware(jid, "failed", exception)
+        if self._server_middleware:
+            self._call_server_middleware(jid, "failed", exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
