@@ -204,7 +204,7 @@ class Worker:
         #"register" middleware by adding it and its args to a dict()
         self._server_middleware[middleware_function] = args
 
-    def _call_server_middleware(self, jobId, status):
+    def _call_server_middleware(self, jobId, status, exception = None):
         for middleware_function, function_args in self._server_middleware.items():
             middleware_function(jobId, status, *function_args)
 
@@ -286,7 +286,7 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        self._call_server_middleware(jid, "failed")
+        self._call_server_middleware(jid, "failed", exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
