@@ -206,7 +206,7 @@ class Worker:
 
     def _call_server_middleware(self, jobId, status, exception = None):
         for middleware_function, function_args in self._server_middleware.items():
-            middleware_function(jobId, status, *function_args)
+            middleware_function(jobId, status, exception, *function_args)
 
     def tick(self):
         if self._pending:
@@ -274,7 +274,7 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        self._call_server_middleware(jid, "finished")
+        self._call_server_middleware(jid, "finished", None)
 
     def _fail(self, jid: str, exception=None):
         response = {
