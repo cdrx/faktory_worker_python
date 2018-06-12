@@ -247,7 +247,7 @@ class Worker:
                 self._pending.remove(future)
                 try:
                     future.result(timeout=1)
-                    self.(future.job_id)
+                    self._ack(future.job_id)
                 except BrokenProcessPool:
                     self._fail(future.job_id)
                 except KeyboardInterrupt:
