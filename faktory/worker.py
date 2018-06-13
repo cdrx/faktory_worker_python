@@ -235,9 +235,10 @@ class Worker:
                 if self._client_middleware:
                     self._call_client_middleware(jid, func, args)
 
-                    if self._cancel_job == True:
+                    if self._cancel_job is True:
                         self._cancel_job = False
                         self._fail(jid)
+                        self.log.info("force failed job {}".format(jid))
                         return
 
                     if self._middleware_values:
