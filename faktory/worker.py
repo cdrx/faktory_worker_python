@@ -206,7 +206,8 @@ class Worker:
                     if "func" in middleware_return:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
-                        self._middleware_values["args"] = middleware_return["args"]
+                        self._middleware_values["args"] = tuple(middleware_return["args"])
+                        self.log(self._middleware_values["args"])
 
                 elif middleware_return == "kill":
                     self._cancel_job = True
@@ -254,6 +255,7 @@ class Worker:
                             args = self._middleware_values["args"]
                         self._middleware_values.clear()
 
+                self.log.info("{}: {}: {}".format(jid, func, args))
                 self._process(jid, func, args)
         else:
             if self.is_disconnecting:
