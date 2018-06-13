@@ -207,7 +207,7 @@ class Worker:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
                         self._middleware_values["args"] = tuple(middleware_return["args"])
-                        self.log(self._middleware_values["args"])
+                        self.log.info(self._middleware_values["args"])
 
                 elif middleware_return == "kill":
                     self._cancel_job = True
