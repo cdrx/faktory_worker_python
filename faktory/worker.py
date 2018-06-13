@@ -207,7 +207,6 @@ class Worker:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
                         self._middleware_values["args"] = tuple(middleware_return["args"])
-                        self.log.info(self._middleware_values["args"])
 
                 elif middleware_return == "kill":
                     self._cancel_job = True
@@ -241,9 +240,9 @@ class Worker:
                     self._call_client_middleware(jid, func, args)
 
                     if self._cancel_job is True:
-                        self._cancel_job = False
                         self._fail(jid)
-                        self.log.info("force failed job {}".format(jid))
+                        self.log.debug("force failed job {}".format(jid))
+                        self._cancel_job = False
                         return
 
                     elif self._middleware_values:
@@ -255,7 +254,6 @@ class Worker:
                             args = self._middleware_values["args"]
                         self._middleware_values.clear()
 
-                self.log.info("{}: {}: {}".format(jid, func, args))
                 self._process(jid, func, args)
         else:
             if self.is_disconnecting:
@@ -293,7 +291,7 @@ class Worker:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
 
-            self.log.info("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
+            self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
