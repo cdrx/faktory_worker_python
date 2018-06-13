@@ -195,15 +195,20 @@ class Worker:
 
     def _call_client_middleware(self, jid, func, args):
         for middleware_function, function_args in self._client_middleware.items():
+
             middleware_return = middleware_function(jid, func, args, *function_args)
+
             if middleware_return:
                 if type(middleware_return) is dict:
+
                     if "jid" in middleware_return:
                         self._middleware_values["jid"] = middleware_return["jid"]
                     if "func" in middleware_return:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
+                        self.log.info(middleware_return[args])
                         self._middleware_values["args"] = middleware_return["args"]
+
                 elif middleware_return == "kill":
                     self._cancel_job = True
 
@@ -248,6 +253,7 @@ class Worker:
                             func = self._middleware_values["func"]
                         if "args" in self._middleware_values:
                             args = self._middleware_values["args"]
+                            self.log.info(args)
                         self._middleware_values.clear()
 
                 self._process(jid, func, args)
