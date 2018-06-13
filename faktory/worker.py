@@ -206,7 +206,6 @@ class Worker:
                     if "func" in middleware_return:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
-                        self.log.info(middleware_return[args])
                         self._middleware_values["args"] = middleware_return["args"]
 
                 elif middleware_return == "kill":
@@ -253,7 +252,6 @@ class Worker:
                             func = self._middleware_values["func"]
                         if "args" in self._middleware_values:
                             args = self._middleware_values["args"]
-                            self.log.info(args)
                         self._middleware_values.clear()
 
                 self._process(jid, func, args)
