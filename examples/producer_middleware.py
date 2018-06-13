@@ -1,10 +1,9 @@
-import logging
 import faktory
 import time
-logging.basicConfig(level=logging.INFO)
-
 
 with faktory.connection() as client:
     while True:
-        client.queue('test', args=(1,2), queue='default')
-        time.sleep(5)
+        client.queue('test', args=(1, 2), queue='default')
+        time.sleep(1)
+        client.queue('test_1', args=(1, 2), queue='default')
+        time.sleep(1)
