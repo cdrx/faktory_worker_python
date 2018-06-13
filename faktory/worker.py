@@ -246,7 +246,7 @@ class Worker:
                         self.log.info("force failed job {}".format(jid))
                         return
 
-                    if self._middleware_values:
+                    elif self._middleware_values:
                         if "jid" in self._middleware_values:
                             jid = self._middleware_values["jid"]
                         if "func" in self._middleware_values:
@@ -293,7 +293,7 @@ class Worker:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
 
-            self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
+            self.log.info("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
