@@ -204,7 +204,7 @@ class Worker:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
                         self._middleware_values["args"] = middleware_return["args"]
-                elif middleware_return = "kill":
+                elif middleware_return == "kill":
                     self._cancel_job = True
 
     def client_middleware_reg(self, middleware_function, *args):
