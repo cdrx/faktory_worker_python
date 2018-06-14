@@ -244,16 +244,14 @@ class Worker:
                 if self._client_middleware:
                     self._call_client_middleware(jid, func, args)
 
-                    if self._middleware_values:
+                    if self._cancel_job is True:
+                            self._fail(jid)
+                            self.log.debug("force failed job {}".format(jid))
+                            self._cancel_job = False
+                            self._middleware_values.clear()
+                            return
 
-                        if "kill" in middleware_return:
-                            if middleware_return["kill"] is True:
-                                self._fail(jid)
-                                self.log.debug("force failed job {}".format(jid))
-                                self._cancel_job = False
-                                self._middleware_values.clear()
-                                return
-
+                    elif self._middleware_values:
                         if "jid" in self._middleware_values:
                             jid = self._middleware_values["jid"]
                         if "func" in self._middleware_values:
