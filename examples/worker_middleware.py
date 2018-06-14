@@ -23,9 +23,11 @@ def change_args(jid, func, args):
         return middleware_return
 
 #jobs can be killed by returning "kill" to the worker
+#do not return kill : false as this is the defualt behavior and would behave unexpectedly
 def kill_jobs(jid, func, args):
     if func == 'test_1':
-        return 'kill'
+        middleware_return = {'kill': True}
+        return middleware_return
 
 #a variable number of arguments may be passed to middleware and used within the middleware functions
 def pass_extra_param(jid, func, args, extra_param):
@@ -35,10 +37,10 @@ def pass_extra_param(jid, func, args, extra_param):
         middleware_return = {'args': args}
         return middleware_return
 
-#server middlware functions must take the jid, job_status, and exception as the first 3 parameters
+#server middlware functions must take the jid, job_success, and exception as the first 3 parameters
 #jobs killed by middleware and jobs who've successfully executed don't pass exceptions
 #similar to client middleware, server middleware can take a variable number of parameters
-def server_middleware(jid, job_status, exception):
+def server_middleware(jid, job_success, exception):
     if job_status is True:
         logging.info('job id: {} finished successfully'.format(jid))
     else:

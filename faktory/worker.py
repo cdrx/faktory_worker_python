@@ -201,15 +201,17 @@ class Worker:
             if middleware_return:
                 if type(middleware_return) is dict:
 
+                    if "kill" in middleware_return:
+                        if middleware_return["kill"] is True:
+                            self._cancel_job = True
+                            return
+
                     if "jid" in middleware_return:
                         self._middleware_values["jid"] = middleware_return["jid"]
                     if "func" in middleware_return:
                         self._middleware_values["func"] = middleware_return["func"]
                     if "args" in middleware_return:
                         self._middleware_values["args"] = tuple(middleware_return["args"])
-
-                elif middleware_return == "kill":
-                    self._cancel_job = True
 
                 else:
                     self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
@@ -220,9 +222,9 @@ class Worker:
     def server_middleware_reg(self, middleware_function, *args):
         self._server_middleware[middleware_function] = args
 
-    def _call_server_middleware(self, jid, status, exception = None):
+    def _call_server_middleware(self, jid, job_success, exception = None):
         for middleware_function, function_args in self._server_middleware.items():
-            middleware_function(jid, status, exception, *function_args)
+            middleware_function(jid, job_success, exception, *function_args)
 
     def tick(self):
         if self._pending:
@@ -242,13 +244,16 @@ class Worker:
                 if self._client_middleware:
                     self._call_client_middleware(jid, func, args)
 
-                    if self._cancel_job is True:
-                        self._fail(jid)
-                        self.log.debug("force failed job {}".format(jid))
-                        self._cancel_job = False
-                        return
+                    if self._middleware_values:
 
-                    elif self._middleware_values:
+                        if "kill" in middleware_return:
+                            if middleware_return["kill"] is True
+                                self._fail(jid)
+                                self.log.debug("force failed job {}".format(jid))
+                                self._cancel_job = False
+                                self._middleware_values.clear()
+                                return
+
                         if "jid" in self._middleware_values:
                             jid = self._middleware_values["jid"]
                         if "func" in self._middleware_values:
