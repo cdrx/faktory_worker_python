@@ -247,7 +247,7 @@ class Worker:
                     if self._middleware_values:
 
                         if "kill" in middleware_return:
-                            if middleware_return["kill"] is True
+                            if middleware_return["kill"] is True:
                                 self._fail(jid)
                                 self.log.debug("force failed job {}".format(jid))
                                 self._cancel_job = False
