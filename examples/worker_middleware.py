@@ -22,8 +22,8 @@ def change_args(jid, func, args):
         middleware_return = {'args': args}
         return middleware_return
 
-#jobs can be killed by returning "kill" to the worker
-#do not return kill : false as this is the defualt behavior and would behave unexpectedly
+#jobs can be killed by returning "kill":true to the worker
+#it is unecessary to return "kill":false as this is the default behavior
 def kill_jobs(jid, func, args):
     if func == 'test_1':
         middleware_return = {'kill': True}
