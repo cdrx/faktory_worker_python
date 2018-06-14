@@ -211,6 +211,9 @@ class Worker:
                 elif middleware_return == "kill":
                     self._cancel_job = True
 
+                else:
+                    self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
+
     def client_middleware_reg(self, middleware_function, *args):
         self._client_middleware[middleware_function] = args
 
