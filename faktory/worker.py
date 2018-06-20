@@ -66,10 +66,9 @@ class Worker:
         self._pending = list()
         self._client_middleware = OrderedDict()
         self._server_middleware = OrderedDict()
-        self._middleware_values = dict()
+        self._middleware_values = list()
         self._disconnect_after = None
         self._executor = None
-        self._cancel_job = False
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
@@ -193,28 +192,20 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
-    def _call_client_middleware(self, jid, func, args):
+    def _call_client_middleware(self, job_info):
         for middleware_function, function_args in self._client_middleware.items():
-
-            middleware_return = middleware_function(jid, func, args, *function_args)
+            middleware_return = middleware_function(job_info, *function_args)
 
             if middleware_return:
-                if type(middleware_return) is dict:
-
-                    if "kill" in middleware_return:
-                        if middleware_return["kill"] is True:
-                            self._cancel_job = True
-                            return
-
-                    if "jid" in middleware_return:
-                        self._middleware_values["jid"] = middleware_return["jid"]
-                    if "func" in middleware_return:
-                        self._middleware_values["func"] = middleware_return["func"]
-                    if "args" in middleware_return:
-                        self._middleware_values["args"] = tuple(middleware_return["args"])
+                if type(middleware_return) is list:
+                    self._middleware_values[0] = middleware_return[0]
+                    self._middleware_values[1] = middleware_return[1]
+                    self._middleware_values[2] = middleware_return[2]
 
                 else:
                     self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
+            else:
+                self.log.info("called middleware function with no return value")
 
     def client_middleware_reg(self, middleware_function, *args):
         self._client_middleware[middleware_function] = args
@@ -240,24 +231,15 @@ class Worker:
                 jid = job.get('jid')
                 func = job.get('jobtype')
                 args = job.get('args')
+                job_info = [jid, func, args]
 
                 if self._client_middleware:
-                    self._call_client_middleware(jid, func, args)
+                    self._call_client_middleware(job_info)
 
-                    if self._cancel_job is True:
-                            self._fail(jid)
-                            self.log.debug("force failed job {}".format(jid))
-                            self._cancel_job = False
-                            self._middleware_values.clear()
-                            return
-
-                    elif self._middleware_values:
-                        if "jid" in self._middleware_values:
-                            jid = self._middleware_values["jid"]
-                        if "func" in self._middleware_values:
-                            func = self._middleware_values["func"]
-                        if "args" in self._middleware_values:
-                            args = self._middleware_values["args"]
+                    if self._middleware_values:
+                        jid = self._middleware_values[0]
+                        func = self._middleware_values[1]
+                        args = self._middleware_values[2]
                         self._middleware_values.clear()
 
                 self._process(jid, func, args)
