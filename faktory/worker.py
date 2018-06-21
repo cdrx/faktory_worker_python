@@ -64,8 +64,8 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._client_middleware = OrderedDict()
-        self._server_middleware = OrderedDict()
+        self._client_middleware = list()
+        self._server_middleware = list()
         self._middleware_values = list()
         self._disconnect_after = None
         self._executor = None
@@ -193,29 +193,27 @@ class Worker:
             self.faktory.disconnect()
 
     def _call_client_middleware(self, job_info):
-        for middleware_function, function_args in self._client_middleware.items():
-            middleware_return = middleware_function(job_info, *function_args)
+        for middleware_function in self._client_middleware.items():
+            middleware_return = middleware_function(job_info)
 
             if middleware_return:
                 if type(middleware_return) is list:
                     self._middleware_values[0] = middleware_return[0]
-                    self._middleware_values[1] = middleware_return[1]
-                    self._middleware_values[2] = middleware_return[2]
+                    self.middleware_value[1] = middleware_value[1]
+                    self.middleware_value[2] = middleware_value[2]
 
                 else:
                     self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
-            else:
-                self.log.info("called middleware function with no return value")
 
-    def client_middleware_reg(self, middleware_function, *args):
-        self._client_middleware[middleware_function] = args
+    def client_middleware_reg(self, middleware_function):
+        self._client_middleware.append(middleware_return)
 
-    def server_middleware_reg(self, middleware_function, *args):
-        self._server_middleware[middleware_function] = args
+    def server_middleware_reg(self, middleware_function):
+        self._server_middleware.append(middleware_function)
 
     def _call_server_middleware(self, jid, job_success, exception = None):
-        for middleware_function, function_args in self._server_middleware.items():
-            middleware_function(jid, job_success, exception, *function_args)
+        for middleware_function in self._server_middleware.items():
+            middleware_function(jid, job_success, exception)
 
     def tick(self):
         if self._pending:
