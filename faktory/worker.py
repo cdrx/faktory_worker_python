@@ -193,7 +193,7 @@ class Worker:
             self.faktory.disconnect()
 
     def _call_client_middleware(self, job_info):
-        for middleware_function in self._client_middleware.items():
+        for middleware_function in self._client_middleware:
             middleware_return = middleware_function(job_info)
 
             if middleware_return:
@@ -212,7 +212,7 @@ class Worker:
         self._server_middleware.append(middleware_function)
 
     def _call_server_middleware(self, jid, job_success, exception = None):
-        for middleware_function in self._server_middleware.items():
+        for middleware_function in self._server_middleware:
             middleware_function(jid, job_success, exception)
 
     def tick(self):
