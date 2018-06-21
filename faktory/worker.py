@@ -198,12 +198,11 @@ class Worker:
 
             if middleware_return:
                 if type(middleware_return) is list:
-                    self._middleware_values[0] = middleware_return[0]
-                    self.middleware_value[1] = middleware_value[1]
-                    self.middleware_value[2] = middleware_value[2]
+                    for i in range(len(middleware_return)):
+                        self._middleware_values.append(middleware_return[i])
 
                 else:
-                    self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
+                    self.log.debug("{} returned {}, expected list.".format(middleware_function.__name__, str(type(middleware_return))))
 
     def client_middleware_reg(self, middleware_function):
         self._client_middleware.append(middleware_function)
