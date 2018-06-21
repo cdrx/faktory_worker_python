@@ -206,7 +206,7 @@ class Worker:
                     self.log.debug("{} returned unexpected type".format(middleware_function.__name__))
 
     def client_middleware_reg(self, middleware_function):
-        self._client_middleware.append(middleware_return)
+        self._client_middleware.append(middleware_function)
 
     def server_middleware_reg(self, middleware_function):
         self._server_middleware.append(middleware_function)
