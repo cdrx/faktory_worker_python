@@ -16,14 +16,14 @@ def simple_middleware_function(job_info):
     logging.info(func)
     logging.info(args)
 
-def change_args(job_info: list):
+def change_args(job_info):
     args = job_info[2]
     args[0] = 4
     job_info[2] = args
     return job_info
 
 def server_middleware(jid, job_success, exception):
-    if job_status is True:
+    if job_success is True:
         logging.info('job id: {} finished successfully'.format(jid))
     else:
         logging.info('job id: {} failed'.format(jid))

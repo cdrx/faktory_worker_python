@@ -64,9 +64,7 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._client_middleware = list()
         self._server_middleware = list()
-        self._middleware_values = list()
         self._disconnect_after = None
         self._executor = None
 
@@ -192,27 +190,13 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
-    def _call_client_middleware(self, job_info):
-        for middleware_function in self._client_middleware:
-            middleware_return = middleware_function(job_info)
-
-            if middleware_return:
-                if type(middleware_return) is list:
-                    for i in range(len(middleware_return)):
-                        self._middleware_values.append(middleware_return[i])
-
-                else:
-                    self.log.debug("{} returned {}, expected list.".format(middleware_function.__name__, str(type(middleware_return))))
-
-    def client_middleware_reg(self, middleware_function):
-        self._client_middleware.append(middleware_function)
-
     def server_middleware_reg(self, middleware_function):
         self._server_middleware.append(middleware_function)
 
-    def _call_server_middleware(self, jid, job_success, exception = None):
+    def _call_server_middleware(self, job):
+        middleware_iter = iter(self._server_middleware)
         for middleware_function in self._server_middleware:
-            middleware_function(jid, job_success, exception)
+            middleware_function(self, job, middleware_iter)
 
     def tick(self):
         if self._pending:
@@ -225,21 +209,10 @@ class Worker:
             # grab a job to do, and start it processing
             job = self.faktory.fetch(self.get_queues())
             if job:
-                jid = job.get('jid')
-                func = job.get('jobtype')
-                args = job.get('args')
-                job_info = [jid, func, args]
-
-                if self._client_middleware:
-                    self._call_client_middleware(job_info)
-
-                    if self._middleware_values:
-                        jid = self._middleware_values[0]
-                        func = self._middleware_values[1]
-                        args = self._middleware_values[2]
-                        self._middleware_values.clear()
-
-                self._process(jid, func, args)
+                if self._server_middleware:
+                    self._call_server_middleware(job)
+                else:
+                    self._process(job)
         else:
             if self.is_disconnecting:
                 if self.can_disconnect:
@@ -269,7 +242,12 @@ class Worker:
                     self._fail(future.job_id, exception=e)
                     self.log.exception("Task failed: {}".format(future.job_id))
 
-    def _process(self, jid: str, job: str, args):
+    def _process(self, job):
+        
+        jid = str(job.get('jid'))
+        func = str(job.get('jobtype'))
+        args = job.get('args')
+
         try:
             task = self.get_registered_task(job)
             if task.bind:
@@ -287,8 +265,6 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        if self._server_middleware:
-            self._call_server_middleware(jid, True, None)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -300,8 +276,6 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        if self._server_middleware:
-            self._call_server_middleware(jid, False, exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
