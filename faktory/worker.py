@@ -212,7 +212,7 @@ class Worker:
                 if self._server_middleware:
                     self._call_server_middleware(job)
                 else:
-                    self._process(job)
+                    self.process(job)
         else:
             if self.is_disconnecting:
                 if self.can_disconnect:
