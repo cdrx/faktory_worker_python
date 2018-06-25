@@ -242,14 +242,16 @@ class Worker:
                     self._fail(future.job_id, exception=e)
                     self.log.exception("Task failed: {}".format(future.job_id))
 
-    def _process(self, job):
-
+    def process(self, job_load):
         jid = str(job.get('jid'))
         func = str(job.get('jobtype'))
         args = job.get('args')
+        self._process(jid, func, args)
+
+    def _process(self, jid: str, job: str, args):
 
         try:
-            task = self.get_registered_task(func)
+            task = self.get_registered_task(job)
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
