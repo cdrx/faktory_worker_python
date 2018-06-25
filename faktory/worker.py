@@ -242,7 +242,7 @@ class Worker:
                     self._fail(future.job_id, exception=e)
                     self.log.exception("Task failed: {}".format(future.job_id))
 
-    def process(self, job_load):
+    def process(self, job):
         jid = str(job.get('jid'))
         func = str(job.get('jobtype'))
         args = job.get('args')
