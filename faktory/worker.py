@@ -195,8 +195,6 @@ class Worker:
 
     def _call_server_middleware(self, job):
         middleware_iter = iter(self._server_middleware)
-        for middleware_function in self._server_middleware:
-            middleware_function(self, job, middleware_iter)
 
     def tick(self):
         if self._pending:
@@ -243,7 +241,7 @@ class Worker:
                     self.log.exception("Task failed: {}".format(future.job_id))
 
     def _process(self, job):
-        
+
         jid = str(job.get('jid'))
         func = str(job.get('jobtype'))
         args = job.get('args')
