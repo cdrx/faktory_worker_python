@@ -195,6 +195,8 @@ class Worker:
 
     def _call_server_middleware(self, job):
         middleware_iter = iter(self._server_middleware)
+        middleware_function = middleware_iter.__next__()
+        middleware_function(self, job, middleware_iter)
 
     def tick(self):
         if self._pending:
