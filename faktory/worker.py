@@ -249,7 +249,7 @@ class Worker:
         args = job.get('args')
 
         try:
-            task = self.get_registered_task(job)
+            task = self.get_registered_task(func)
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
                 args = [jid, ] + args
