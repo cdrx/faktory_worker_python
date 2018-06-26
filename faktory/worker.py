@@ -201,7 +201,7 @@ class Worker:
     def chain_middleware(self, job):
         try:#yield
             middlewareChain = next(self._middlewareIterator)
-            middlewareChain(worker, job)
+            middlewareChain(self, job)
         except StopIteration:
             self.process(job)
 
