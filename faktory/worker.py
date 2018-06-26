@@ -11,7 +11,6 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
 from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
-from collections import OrderedDict
 
 from ._proto import Connection
 
@@ -67,6 +66,7 @@ class Worker:
         self._server_middleware = list()
         self._disconnect_after = None
         self._executor = None
+        self._middlewareIterator = None
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
@@ -194,9 +194,16 @@ class Worker:
         self._server_middleware.append(middleware_function)
 
     def _call_server_middleware(self, job):
-        middleware_iter = iter(self._server_middleware)
-        middleware_function = middleware_iter.__next__()
-        middleware_function(self, job, middleware_iter)
+        self._middlewareIterator = iter(self._server_middleware)
+        middlewareChain = next(middlewareIterator)
+        middlewareChain(self, job)
+
+    def chain_middleware(self, job):
+        try:#yield
+            middlewareChain = next(self._middlewareIterator)
+            middlewareChain(worker, job)
+        except StopIteration:
+            self.process(job)
 
     def tick(self):
         if self._pending:
