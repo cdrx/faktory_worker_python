@@ -250,8 +250,8 @@ class Worker:
                     self.log.exception("Task failed: {}".format(future.job_id))
 
     def process(self, job):
-        jid = str(job.get('jid'))
-        func = str(job.get('jobtype'))
+        jid = job.get('jid')
+        func = job.get('jobtype')
         args = job.get('args')
         self._process(jid, func, args)
 
@@ -270,6 +270,7 @@ class Worker:
 
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
+            self.log.info('job fails here')
 
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
