@@ -195,7 +195,7 @@ class Worker:
 
     def _call_server_middleware(self, job):
         self._middlewareIterator = iter(self._server_middleware)
-        middlewareChain = next(middlewareIterator)
+        middlewareChain = next(self._middlewareIterator)
         middlewareChain(self, job)
 
     def chain_middleware(self, job):
