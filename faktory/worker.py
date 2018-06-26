@@ -63,6 +63,7 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
+        self._logging_middleware = list()
         self._server_middleware = list()
         self._disconnect_after = None
         self._executor = None
