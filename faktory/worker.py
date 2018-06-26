@@ -64,7 +64,6 @@ class Worker:
         self._tasks = dict()
         self._pending = list()
         self._server_middleware = list()
-        self._logging_middleware = list()
         self._disconnect_after = None
         self._executor = None
         self._middlewareIterator = None
@@ -206,13 +205,6 @@ class Worker:
         except StopIteration:
             self.process(job)
 
-    def logging_middleware_reg(self, middleware_function):
-        self._logging_middleware.append(middleware_function)
-
-    def _call_logging_middleware(self, jid, job_success, exception = None):
-        for middleware_function in self._logging_middleware:
-            middleware_function(jid, job_success, exception)
-
     def tick(self):
         if self._pending:
             self.send_status_to_faktory()
@@ -283,8 +275,6 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        if self._logging_middleware:
-            self._call_logging_middleware(jid, True, None)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -296,8 +286,6 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        if self._logging_middleware:
-            self._call_logging_middleware(jid, False, exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
