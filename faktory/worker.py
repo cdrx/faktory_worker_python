@@ -65,6 +65,7 @@ class Worker:
         self._pending = list()
         self._logging_middleware = list()
         self._server_middleware = list()
+        self._middleware_index = 0
         self._disconnect_after = None
         self._executor = None
         self._middlewareIterator = None
@@ -200,10 +201,12 @@ class Worker:
         middlewareChain(self, job)
 
     def chain_middleware(self, job):
-        try:#yield
-            middlewareChain = next(self._middlewareIterator)
-            middlewareChain(self, job)
-        except StopIteration:
+        if i < len(self._server_middleware):
+            foo = self._server_middleware[i]
+            i += 1
+            foo(self, job)
+        else:
+            self._middleware_index = 0
             self.process(job)
 
     def logging_middleware_reg(self, middleware_function):
