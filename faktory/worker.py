@@ -68,7 +68,6 @@ class Worker:
         self._middleware_index = 0
         self._disconnect_after = None
         self._executor = None
-        self._middlewareIterator = None
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
@@ -196,9 +195,8 @@ class Worker:
         self._server_middleware.append(middleware_function)
 
     def _call_server_middleware(self, job):
-        self._middlewareIterator = iter(self._server_middleware)
-        middlewareChain = next(self._middlewareIterator)
-        middlewareChain(self, job)
+        self._middleware_index = len(self._server_middleware)
+        self.chain_middleware(job)
 
     def chain_middleware(self, job):
         if self._middleware_index < len(self._server_middleware):
@@ -281,7 +279,6 @@ class Worker:
 
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
-            self.log.info('job fails here')
 
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
