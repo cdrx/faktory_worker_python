@@ -195,7 +195,6 @@ class Worker:
         self._server_middleware.append(middleware_function)
 
     def _call_server_middleware(self, job):
-        self._middleware_index = len(self._server_middleware)
         self.chain_middleware(job)
 
     def chain_middleware(self, job):
