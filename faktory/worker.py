@@ -201,9 +201,9 @@ class Worker:
         middlewareChain(self, job)
 
     def chain_middleware(self, job):
-        if i < len(self._server_middleware):
-            foo = self._server_middleware[i]
-            i += 1
+        if self._middleware_index < len(self._server_middleware):
+            foo = self._server_middleware[self._middleware_index]
+            self._middleware_index += 1
             foo(self, job)
         else:
             self._middleware_index = 0
