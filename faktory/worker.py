@@ -63,7 +63,6 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
-        self._logging_middleware = list()
         self._server_middleware = list()
         self._middleware_index = 0
         self._disconnect_after = None
@@ -194,8 +193,6 @@ class Worker:
     def server_middleware_reg(self, middleware_function):
         self._server_middleware.append(middleware_function)
 
-    def _call_server_middleware(self, job):
-        self.chain_middleware(job)
 
     def chain_middleware(self, job):
         if self._middleware_index < len(self._server_middleware):
@@ -205,13 +202,6 @@ class Worker:
         else:
             self._middleware_index = 0
             self.process(job)
-
-    def logging_middleware_reg(self, middleware_function):
-        self._logging_middleware.append(middleware_function)
-
-    def _call_logging_middleware(self, jid, job_success, exception = None):
-        for middleware_function in self._logging_middleware:
-            middleware_function(jid, job_success, exception)
 
     def tick(self):
         if self._pending:
@@ -225,7 +215,7 @@ class Worker:
             job = self.faktory.fetch(self.get_queues())
             if job:
                 if self._server_middleware:
-                    self._call_server_middleware(job)
+                    self.chain_middleware(job)
                 else:
                     self.process(job)
         else:
@@ -282,8 +272,6 @@ class Worker:
     def _ack(self, jid: str):
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
-        if self._logging_middleware:
-            self._call_logging_middleware(jid, True, None)
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -295,8 +283,6 @@ class Worker:
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
-        if self._logging_middleware:
-            self._call_logging_middleware(jid, False, exception)
 
     def fail_all_jobs(self):
         for future in self._pending:
