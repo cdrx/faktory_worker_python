@@ -20,7 +20,7 @@ Task = namedtuple('Task', ['name', 'func', 'bind'])
 
 
 class Worker:
-    send_heartbeat_every = 15  # seconds
+    send_heartbeat_every = 13  # seconds
     is_quiet = False
     is_disconnecting = False
 
