@@ -128,8 +128,7 @@ class Worker:
             while True:
                 try:
                     await asyncio.sleep(self.send_heartbeat_every)
-                    if self.should_send_heartbeat:
-                        self.heartbeat()
+                    self.heartbeat()
                 except Exception:
                     sys.exit()  # basically, worker has crashed and its status has been comprimised.
                     # exit the heartbeat thread associated with this worker
@@ -308,20 +307,6 @@ class Worker:
     @property
     def can_disconnect(self):
         return len(self._pending) == 0
-
-    @property
-    def should_send_heartbeat(self) -> bool:
-        """
-        Checks `self._last_heartbeat` and `self.send_heartbeat_every` to figure out of this worker needs to send a
-        heartbeat to the Faktory server. The beat should be sent once per 60s max, and defaults to once per 15s.
-
-        Chances are you don't want to override this in a subclass, but change the property `self.send_heartbeat_every`
-        instead.
-
-        :return: True if this worker should heartbeat
-        :rtype: bool
-        """
-        return datetime.now() > (self._last_heartbeat + timedelta(seconds=self.send_heartbeat_every))
 
     def heartbeat(self):
         """
