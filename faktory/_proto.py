@@ -157,7 +157,7 @@ class Connection:
                         else:
                             buffer += more
         for msg in inner():
-            logging.info("get_message result %s", msg)
+            logging.info("get_message result {}", msg)
             yield msg
 
     def fetch(self, queues) -> Optional[dict]:
@@ -165,7 +165,7 @@ class Connection:
         job = next(self.get_message())
         if not job:
             return None
-        logging.info('Job Fetch Result: %s (%d chars)', job, len(job))
+        logging.info('Job Fetch Result: {} ({} chars)', job, len(job))
 
         data = json.loads(job)
         return data
@@ -178,7 +178,7 @@ class Connection:
                 s = "{} {}".format(s, json.dumps(data))
             else:
                 s = "{} {}".format(s, data)
-        logging.info('Sent raw server message: %s (%d chars)', s, len(s))
+        logging.info('Sent raw server message: {} ({} chars)', s, len(s))
         self.socket.send(str.encode(s + "\r\n"))
 
     def disconnect(self):
