@@ -153,10 +153,9 @@ class Worker:
         :rtype:
         """
         # create a pool of workers
-        self.faktory_lock.acquire()
         if not self.faktory.is_connected:
-            self.faktory.connect(worker_id=self.worker_id)
-        self.faktory_lock.release()
+            with self.faktory_lock:
+                self.faktory.connect(worker_id=self.worker_id)
 
         self.heartbeater = Thread(target=self._background_heartbeat)
         self.heartbeater.start()
@@ -211,9 +210,8 @@ class Worker:
 
         if force:
             self.fail_all_jobs()
-            self.faktory_lock.acquire()
-            self.faktory.disconnect()
-            self.faktory_lock.release()
+            with self.faktory_lock:
+                self.faktory.disconnect()
 
     def tick(self):
         if self._pending:
@@ -221,9 +219,9 @@ class Worker:
 
         if self.should_fetch_job:
             # grab a job to do, and start it processing
-            self.faktory_lock.acquire()
-            job = self.faktory.fetch(self.get_queues())
-            self.faktory_lock.release()
+            with self.faktory_lock:
+                job = self.faktory.fetch(self.get_queues())
+
             if job:
                 jid = job.get('jid')
                 func = job.get('jobtype')
@@ -234,9 +232,8 @@ class Worker:
                 if self.can_disconnect:
                     # can_disconnect returns True when there are no running tasks or pending ACK / FAILs to send
                     # so there is no more work to send back to Faktory
-                    self.faktory_lock.acquire()
-                    self.faktory.disconnect()
-                    self.faktory_lock.release()
+                    with self.faktory_lock:
+                        self.faktory.disconnect()
                     return
 
                 if datetime.now() > self._disconnect_after:
@@ -275,10 +272,9 @@ class Worker:
             self._fail(jid, exception=e)
 
     def _ack(self, jid: str):
-        self.faktory_lock.acquire()
-        self.faktory.reply("ACK", {'jid': jid})
-        ok = next(self.faktory.get_message())
-        self.faktory_lock.release()
+        with self.faktory_lock:
+            self.faktory.reply("ACK", {'jid': jid})
+            ok = next(self.faktory.get_message())
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -288,10 +284,9 @@ class Worker:
             response['errtype'] = type(exception).__name__
             response['message'] = str(exception)
 
-        self.faktory_lock.acquire()
-        self.faktory.reply("FAIL", response)
-        ok = next(self.faktory.get_message())
-        self.faktory_lock.release()
+        with self.faktory_lock:
+            self.faktory.reply("FAIL", response)
+            ok = next(self.faktory.get_message())
 
     def fail_all_jobs(self):
         for future in self._pending:
@@ -339,10 +334,9 @@ class Worker:
         """
         self.log.debug("Sending heartbeat for worker {}".format(self.worker_id))
 
-        self.faktory_lock.acquire()
-        self.faktory.reply("BEAT", {'wid': self.worker_id})
-        ok = next(self.faktory.get_message())
-        self.faktory_lock.release()
+        with self.faktory_lock:
+            self.faktory.reply("BEAT", {'wid': self.worker_id})
+            ok = next(self.faktory.get_message())
 
         if "state" in ok:
             if "quiet" in ok:
