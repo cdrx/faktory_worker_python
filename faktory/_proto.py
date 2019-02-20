@@ -7,6 +7,7 @@ import os.path
 import json
 import socket
 import ssl
+import uuid
 
 from urllib.parse import urlparse
 
@@ -70,7 +71,7 @@ class Connection:
             raise FaktoryHandshakeError("Could not connect to Faktory; expected HI from server, but got '{}'".format(ahoy))
 
         response = {
-            'hostname': socket.gethostname(),
+            'hostname': str(uuid.uuid4()),
             'pid': os.getpid(),
             "labels": self.labels
         }
@@ -111,55 +112,60 @@ class Connection:
         return v == 2
 
     def get_message(self) -> Iterator[str]:
-        socket = self.socket
-        buffer = socket.recv(self.buffer_size)
-        while True:
-            buffering = True
-            while buffering:
-                if buffer.count(b'\r\n'):
-                    (line, buffer) = buffer.split(b"\r\n", 1)
-                    if len(line) == 0:
-                        continue
-                    elif chr(line[0]) == '+':
-                        resp = line[1:].decode().strip("\r\n ")
-                        if self.debug: self.log.debug("> {}".format(resp))
-                        yield resp
-                    elif chr(line[0]) == '-':
-                        resp = line[1:].decode().strip("\r\n ")
-                        if self.debug: self.log.debug("> {}".format(resp))
-                        yield resp
-                    elif chr(line[0]) == '$':
-                        # read $xxx bytes of data into a buffer
-                        number_of_bytes = int(line[1:]) + 2  # add 2 bytes so we read the \r\n from the end
-                        if number_of_bytes <= 1:
-                            if self.debug: self.log.debug("> {}".format("nil"))
-                            yield None
-                        else:
-                            if len(buffer) >= number_of_bytes:
-                                # we've already got enough bytes in the buffer
-                                data = buffer[:number_of_bytes]
-                                buffer = buffer[number_of_bytes:]
-                            else:
-                                data = buffer
-                                while len(data) != number_of_bytes:
-                                    bytes_required = number_of_bytes - len(data)
-                                    data += socket.recv(bytes_required)
-                                buffer = []
-                            resp = data.decode().strip("\r\n ")
+        def inner():
+            socket = self.socket
+            buffer = socket.recv(self.buffer_size)
+            while True:
+                buffering = True
+                while buffering:
+                    if buffer.count(b'\r\n'):
+                        (line, buffer) = buffer.split(b"\r\n", 1)
+                        if len(line) == 0:
+                            continue
+                        elif chr(line[0]) == '+':
+                            resp = line[1:].decode().strip("\r\n ")
                             if self.debug: self.log.debug("> {}".format(resp))
                             yield resp
-                else:
-                    more = socket.recv(self.buffer_size)
-                    if not more:
-                        buffering = False
+                        elif chr(line[0]) == '-':
+                            resp = line[1:].decode().strip("\r\n ")
+                            if self.debug: self.log.debug("> {}".format(resp))
+                            yield resp
+                        elif chr(line[0]) == '$':
+                            # read $xxx bytes of data into a buffer
+                            number_of_bytes = int(line[1:]) + 2  # add 2 bytes so we read the \r\n from the end
+                            if number_of_bytes <= 1:
+                                if self.debug: self.log.debug("> {}".format("nil"))
+                                yield None
+                            else:
+                                if len(buffer) >= number_of_bytes:
+                                    # we've already got enough bytes in the buffer
+                                    data = buffer[:number_of_bytes]
+                                    buffer = buffer[number_of_bytes:]
+                                else:
+                                    data = buffer
+                                    while len(data) != number_of_bytes:
+                                        bytes_required = number_of_bytes - len(data)
+                                        data += socket.recv(bytes_required)
+                                    buffer = []
+                                resp = data.decode().strip("\r\n ")
+                                if self.debug: self.log.debug("> {}".format(resp))
+                                yield resp
                     else:
-                        buffer += more
+                        more = socket.recv(self.buffer_size)
+                        if not more:
+                            buffering = False
+                        else:
+                            buffer += more
+        for msg in inner():
+            logging.info("get_message result %s", msg)
+            yield msg
 
     def fetch(self, queues) -> Optional[dict]:
         self.reply("FETCH {}".format(" ".join(queues)))
         job = next(self.get_message())
         if not job:
             return None
+        logging.info('Job Fetch Result: %s (%d chars)', job, len(job))
 
         data = json.loads(job)
         return data
@@ -172,6 +178,7 @@ class Connection:
                 s = "{} {}".format(s, json.dumps(data))
             else:
                 s = "{} {}".format(s, data)
+        logging.info('Sent raw server message: %s (%d chars)', s, len(s))
         self.socket.send(str.encode(s + "\r\n"))
 
     def disconnect(self):

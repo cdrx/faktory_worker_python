@@ -11,6 +11,8 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
 from concurrent.futures.process import BrokenProcessPool
 
 from collections import namedtuple
+from threading import Thread, Lock
+import asyncio
 
 from ._proto import Connection
 
@@ -76,6 +78,7 @@ class Worker:
             kwargs['worker_id'] = self.get_worker_id()
         self.worker_id = kwargs['worker_id']
 
+        self.faktory_lock = Lock()
         self.faktory = Connection(*args, **kwargs)
         # self.faktory.debug = True
 
@@ -117,6 +120,23 @@ class Worker:
             del self._tasks[name]
             self.log.debug("Removed registered task: {}".format(name))
 
+    # infinite blocking; should be run on a dedicated thread
+    # this enables the worker to process jobs that take more than 15 seconds
+    #  without missing the heartbeat interval expected by the faktory server
+    def _background_heartbeat(self):
+        async def heartbeat_cycle():
+            while True:
+                try:
+                    await asyncio.sleep(self.send_heartbeat_every)
+                    if self.should_send_heartbeat:
+                        self.heartbeat()
+                except Exception:
+                    sys.exit()  # basically, worker has crashed and its status has been comprimised.
+                    # exit the heartbeat thread associated with this worker
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(heartbeat_cycle())
+        loop.close()
+
     def run(self):
         """
         Start the worker
@@ -133,8 +153,13 @@ class Worker:
         :rtype:
         """
         # create a pool of workers
+        self.faktory_lock.acquire()
         if not self.faktory.is_connected:
             self.faktory.connect(worker_id=self.worker_id)
+        self.faktory_lock.release()
+
+        self.heartbeater = Thread(target=self._background_heartbeat)
+        self.heartbeater.start()
 
         self.log.debug("Creating a worker pool with concurrency of {}".format(self.concurrency))
 
@@ -186,18 +211,19 @@ class Worker:
 
         if force:
             self.fail_all_jobs()
+            self.faktory_lock.acquire()
             self.faktory.disconnect()
+            self.faktory_lock.release()
 
     def tick(self):
         if self._pending:
             self.send_status_to_faktory()
 
-        if self.should_send_heartbeat:
-            self.heartbeat()
-
         if self.should_fetch_job:
             # grab a job to do, and start it processing
+            self.faktory_lock.acquire()
             job = self.faktory.fetch(self.get_queues())
+            self.faktory_lock.release()
             if job:
                 jid = job.get('jid')
                 func = job.get('jobtype')
@@ -208,7 +234,9 @@ class Worker:
                 if self.can_disconnect:
                     # can_disconnect returns True when there are no running tasks or pending ACK / FAILs to send
                     # so there is no more work to send back to Faktory
+                    self.faktory_lock.acquire()
                     self.faktory.disconnect()
+                    self.faktory_lock.release()
                     return
 
                 if datetime.now() > self._disconnect_after:
@@ -247,8 +275,10 @@ class Worker:
             self._fail(jid, exception=e)
 
     def _ack(self, jid: str):
+        self.faktory_lock.acquire()
         self.faktory.reply("ACK", {'jid': jid})
         ok = next(self.faktory.get_message())
+        self.faktory_lock.release()
 
     def _fail(self, jid: str, exception=None):
         response = {
@@ -258,8 +288,10 @@ class Worker:
             response['errtype'] = type(exception).__name__
             response['message'] = str(exception)
 
+        self.faktory_lock.acquire()
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
+        self.faktory_lock.release()
 
     def fail_all_jobs(self):
         for future in self._pending:
@@ -306,8 +338,12 @@ class Worker:
         :rtype:
         """
         self.log.debug("Sending heartbeat for worker {}".format(self.worker_id))
+
+        self.faktory_lock.acquire()
         self.faktory.reply("BEAT", {'wid': self.worker_id})
         ok = next(self.faktory.get_message())
+        self.faktory_lock.release()
+
         if "state" in ok:
             if "quiet" in ok:
                 if not self.is_quiet:
