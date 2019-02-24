@@ -71,7 +71,7 @@ class Connection:
             raise FaktoryHandshakeError("Could not connect to Faktory; expected HI from server, but got '{}'".format(ahoy))
 
         response = {
-            'hostname': str(uuid.uuid4()),
+            'hostname': socket.gethostname(),
             'pid': os.getpid(),
             "labels": self.labels
         }
