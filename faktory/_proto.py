@@ -128,8 +128,6 @@ class Connection:
                             yield resp
                         elif chr(line[0]) == '-':
                             resp = line[1:].decode().strip("\r\n ")
-                            if self.debug: self.log.debug("> {}".format(resp))
-                            yield resp
                         elif chr(line[0]) == '$':
                             # read $xxx bytes of data into a buffer
                             number_of_bytes = int(line[1:]) + 2  # add 2 bytes so we read the \r\n from the end
