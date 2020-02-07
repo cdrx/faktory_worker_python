@@ -7,3 +7,7 @@ class FaktoryHandshakeError(ConnectionError):
 
 class FaktoryAuthenticationError(ConnectionError):
     pass
+
+
+class FaktoryConnectionResetError(ConnectionResetError):
+    pass

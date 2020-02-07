@@ -5,12 +5,13 @@ import hashlib
 import os
 import os.path
 import json
+import select
 import socket
 import ssl
 
 from urllib.parse import urlparse
 
-from .exceptions import FaktoryHandshakeError, FaktoryAuthenticationError
+from .exceptions import FaktoryHandshakeError, FaktoryAuthenticationError, FaktoryConnectionResetError
 
 
 class Connection:
@@ -23,6 +24,7 @@ class Connection:
     debug = False
 
     is_connected = False
+    is_connecting = False
     is_quiet = False
     is_disconnecting = False
     disconnection_requested = None
@@ -53,12 +55,14 @@ class Connection:
 
     def connect(self, worker_id: str = None) -> bool:
         self.log.info("Connecting to {}:{}".format(self.host, self.port))
+        self.is_connecting = True
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.use_tls:
             self.log.debug("Using TLS")
             self.socket = ssl.wrap_socket(self.socket)
 
+        self.socket.setblocking(0)
         self.socket.settimeout(self.timeout)
         try:
             self.socket.connect((self.host, self.port))
@@ -104,7 +108,7 @@ class Connection:
 
         self.log.debug("Connected to Faktory")
 
-        self.is_connected = True
+        self.is_connected, self.is_connecting = True, False
         return self.is_connected
 
     def is_supported_server_version(self, v: int):
@@ -112,8 +116,8 @@ class Connection:
 
     def get_message(self) -> Iterator[str]:
         socket = self.socket
-        buffer = socket.recv(self.buffer_size)
-        while True:
+        buffer = self.select_data(self.buffer_size)
+        while self.is_connected or self.is_connecting:
             buffering = True
             while buffering:
                 if buffer.count(b'\r\n'):
@@ -143,17 +147,27 @@ class Connection:
                                 data = buffer
                                 while len(data) != number_of_bytes:
                                     bytes_required = number_of_bytes - len(data)
-                                    data += socket.recv(bytes_required)
+                                    data += self.select_data(bytes_required)
                                 buffer = []
                             resp = data.decode().strip("\r\n ")
                             if self.debug: self.log.debug("> {}".format(resp))
                             yield resp
                 else:
-                    more = socket.recv(self.buffer_size)
+                    more = self.select_data(self.buffer_size)
                     if not more:
                         buffering = False
                     else:
                         buffer += more
+
+    def select_data(self, buffer_size):
+        s = self.socket
+        ready = select.select([s], [], [], self.timeout)
+        if ready[0]:
+            buffer = s.recv(buffer_size)
+            if len(buffer) > 0:
+                return buffer
+        self.disconnect()
+        raise FaktoryConnectionResetError
 
     def fetch(self, queues) -> Optional[dict]:
         self.reply("FETCH {}".format(" ".join(queues)))
