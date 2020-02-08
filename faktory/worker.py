@@ -9,6 +9,7 @@ import signal
 from datetime import datetime, timedelta
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
 from concurrent.futures.process import BrokenProcessPool
+from concurrent.futures.thread import BrokenThreadPool
 
 from collections import namedtuple
 
@@ -157,6 +158,10 @@ class Worker:
 
                 self.log.info("Shutdown: waiting up to 15 seconds for workers to finish current tasks")
                 self.disconnect(wait=15)
+            except (BrokenProcessPool, BrokenThreadPool):
+                self.log.info("Shutting down due to pool failure")
+                self.disconnect(force=True, wait=15)
+                break
 
         if self.faktory.is_connected:
             self.log.warning("Forcing worker processes to shutdown...")
@@ -224,8 +229,6 @@ class Worker:
                 try:
                     future.result(timeout=1)
                     self._ack(future.job_id)
-                except BrokenProcessPool:
-                    self._fail(future.job_id)
                 except KeyboardInterrupt:
                     self._fail(future.job_id)
                 except Exception as e:
