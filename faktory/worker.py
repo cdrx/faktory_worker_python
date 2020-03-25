@@ -64,6 +64,8 @@ class Worker:
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
+        self._server_middleware = list()
+        self._middleware_index = 0
         self._disconnect_after = None
         self._executor = None
 
@@ -193,6 +195,19 @@ class Worker:
             self.fail_all_jobs()
             self.faktory.disconnect()
 
+    def server_middleware_reg(self, middleware_function):
+        self._server_middleware.append(middleware_function)
+
+
+    def chain_middleware(self, job):
+        if self._middleware_index < len(self._server_middleware):
+            foo = self._server_middleware[self._middleware_index]
+            self._middleware_index += 1
+            foo(self, job)
+        else:
+            self._middleware_index = 0
+            self.process(job)
+
     def tick(self):
         if self._pending:
             self.send_status_to_faktory()
@@ -204,10 +219,10 @@ class Worker:
             # grab a job to do, and start it processing
             job = self.faktory.fetch(self.get_queues())
             if job:
-                jid = job.get('jid')
-                func = job.get('jobtype')
-                args = job.get('args')
-                self._process(jid, func, args)
+                if self._server_middleware:
+                    self.chain_middleware(job)
+                else:
+                    self.process(job)
         else:
             if self.is_disconnecting:
                 if self.can_disconnect:
@@ -235,7 +250,14 @@ class Worker:
                     self._fail(future.job_id, exception=e)
                     self.log.exception("Task failed: {}".format(future.job_id))
 
+    def process(self, job):
+        jid = job.get('jid')
+        func = job.get('jobtype')
+        args = job.get('args')
+        self._process(jid, func, args)
+
     def _process(self, jid: str, job: str, args):
+
         try:
             task = self.get_registered_task(job)
             if task.bind:
@@ -246,6 +268,7 @@ class Worker:
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
+
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
 
