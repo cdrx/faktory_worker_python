@@ -15,7 +15,7 @@ from collections import namedtuple
 
 from ._proto import Connection
 
-Task = namedtuple('Task', ['name', 'func', 'bind'])
+Task = namedtuple("Task", ["name", "func", "bind"])
 
 
 class Worker:
@@ -56,11 +56,16 @@ class Worker:
         :param executor: Set the class of the process executor that will be used. By default concurrenct.futures.ProcessPoolExecutor is used.
         :type executor: class
         """
-        self.concurrency = kwargs.pop('concurrency', 1)
-        self.log = kwargs.pop('log', logging.getLogger('faktory.worker'))
+        self.concurrency = kwargs.pop("concurrency", 1)
+        self.log = kwargs.pop("log", logging.getLogger("faktory.worker"))
 
-        self._queues = kwargs.pop('queues', ['default', ])
-        self._executor_class = kwargs.pop('executor', ThreadPoolExecutor if kwargs.pop('use_threads', False) else ProcessPoolExecutor)
+        self._queues = kwargs.pop("queues", ["default",])
+        self._executor_class = kwargs.pop(
+            "executor",
+            ThreadPoolExecutor
+            if kwargs.pop("use_threads", False)
+            else ProcessPoolExecutor,
+        )
         self._last_heartbeat = None
         self._tasks = dict()
         self._pending = list()
@@ -69,13 +74,13 @@ class Worker:
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
-        if 'labels' not in kwargs:
-            kwargs['labels'] = ['python']
-        self.labels = kwargs['labels']
+        if "labels" not in kwargs:
+            kwargs["labels"] = ["python"]
+        self.labels = kwargs["labels"]
 
-        if 'worker_id' not in kwargs:
-            kwargs['worker_id'] = self.get_worker_id()
-        self.worker_id = kwargs['worker_id']
+        if "worker_id" not in kwargs:
+            kwargs["worker_id"] = self.get_worker_id()
+        self.worker_id = kwargs["worker_id"]
 
         self.faktory = Connection(*args, **kwargs)
         # self.faktory.debug = True
@@ -98,7 +103,7 @@ class Worker:
         :rtype:
         """
         if not callable(func):
-            raise ValueError('task func is not callable')
+            raise ValueError("task func is not callable")
 
         self._tasks[name] = Task(name=name, func=func, bind=bind)
         self.log.info("Registered task: {}".format(name))
@@ -137,9 +142,13 @@ class Worker:
         if not self.faktory.is_connected:
             self.faktory.connect(worker_id=self.worker_id)
 
-        self.log.debug("Creating a worker pool with concurrency of {}".format(self.concurrency))
+        self.log.debug(
+            "Creating a worker pool with concurrency of {}".format(self.concurrency)
+        )
 
-        self._last_heartbeat = datetime.now() + timedelta(seconds=self.send_heartbeat_every)  # schedule a heartbeat for the future
+        self._last_heartbeat = datetime.now() + timedelta(
+            seconds=self.send_heartbeat_every
+        )  # schedule a heartbeat for the future
 
         self.log.info("Queues: {}".format(", ".join(self.get_queues())))
         self.log.info("Labels: {}".format(", ".join(self.faktory.labels)))
@@ -156,7 +165,9 @@ class Worker:
                 if self.is_disconnecting:
                     break
 
-                self.log.info("Shutdown: waiting up to 15 seconds for workers to finish current tasks")
+                self.log.info(
+                    "Shutdown: waiting up to 15 seconds for workers to finish current tasks"
+                )
                 self.disconnect(wait=15)
             except (BrokenProcessPool, BrokenThreadPool):
                 self.log.info("Shutting down due to pool failure")
@@ -183,7 +194,9 @@ class Worker:
         :return:
         :rtype:
         """
-        self.log.debug("Disconnecting from Faktory, force={} wait={}".format(force, wait))
+        self.log.debug(
+            "Disconnecting from Faktory, force={} wait={}".format(force, wait)
+        )
 
         self.is_quiet = True
         self.is_disconnecting = True
@@ -204,9 +217,9 @@ class Worker:
             # grab a job to do, and start it processing
             job = self.faktory.fetch(self.get_queues())
             if job:
-                jid = job.get('jid')
-                func = job.get('jobtype')
-                args = job.get('args')
+                jid = job.get("jid")
+                func = job.get("jobtype")
+                args = job.get("args")
                 self._process(jid, func, args)
         else:
             if self.is_disconnecting:
@@ -240,9 +253,13 @@ class Worker:
             task = self.get_registered_task(job)
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
-                args = [jid, ] + args
+                args = [jid,] + args
 
-            self.log.debug("Running task: {}({})".format(task.name, ", ".join([str(x) for x in args])))
+            self.log.debug(
+                "Running task: {}({})".format(
+                    task.name, ", ".join([str(x) for x in args])
+                )
+            )
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
@@ -250,16 +267,14 @@ class Worker:
             self._fail(jid, exception=e)
 
     def _ack(self, jid: str):
-        self.faktory.reply("ACK", {'jid': jid})
+        self.faktory.reply("ACK", {"jid": jid})
         ok = next(self.faktory.get_message())
 
     def _fail(self, jid: str, exception=None):
-        response = {
-            'jid': jid
-        }
+        response = {"jid": jid}
         if exception is not None:
-            response['errtype'] = type(exception).__name__
-            response['message'] = str(exception)
+            response["errtype"] = type(exception).__name__
+            response["message"] = str(exception)
 
         self.faktory.reply("FAIL", response)
         ok = next(self.faktory.get_message())
@@ -279,7 +294,10 @@ class Worker:
 
     @property
     def should_fetch_job(self) -> bool:
-        return not (self.is_disconnecting or self.is_quiet) and len(self._pending) < self.concurrency
+        return (
+            not (self.is_disconnecting or self.is_quiet)
+            and len(self._pending) < self.concurrency
+        )
 
     @property
     def can_disconnect(self):
@@ -297,7 +315,9 @@ class Worker:
         :return: True if this worker should heartbeat
         :rtype: bool
         """
-        return datetime.now() > (self._last_heartbeat + timedelta(seconds=self.send_heartbeat_every))
+        return datetime.now() > (
+            self._last_heartbeat + timedelta(seconds=self.send_heartbeat_every)
+        )
 
     def heartbeat(self):
         """
@@ -309,17 +329,20 @@ class Worker:
         :rtype:
         """
         self.log.debug("Sending heartbeat for worker {}".format(self.worker_id))
-        self.faktory.reply("BEAT", {'wid': self.worker_id})
+        self.faktory.reply("BEAT", {"wid": self.worker_id})
         ok = next(self.faktory.get_message())
         if "state" in ok:
             if "quiet" in ok:
                 if not self.is_quiet:
-                    self.log.warning("Faktory has quieted this worker, will not run any more tasks")
+                    self.log.warning(
+                        "Faktory has quieted this worker, will not run any more tasks"
+                    )
                 self.is_quiet = True
             if "terminate" in ok:
                 if not self.is_disconnecting:
                     self.log.warning(
-                        "Faktory has asked this worker to shutdown, will cancel any pending tasks still running 25s time")
+                        "Faktory has asked this worker to shutdown, will cancel any pending tasks still running 25s time"
+                    )
                 self.disconnect(wait=25)
         self._last_heartbeat = datetime.now()
 
