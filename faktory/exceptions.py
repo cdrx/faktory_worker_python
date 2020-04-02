@@ -22,5 +22,5 @@ class FaktoryAuthenticationError(FaktoryError, ConnectionError):
     pass
 
 
-class FaktoryConnectionResetError(FaktoryError, ConnectionError):
+class FaktoryConnectionResetError(FaktoryError, ConnectionResetError):
     pass
