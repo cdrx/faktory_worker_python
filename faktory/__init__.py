@@ -4,8 +4,8 @@ from .worker import Worker
 from .client import Client
 from .exceptions import *
 
-__version__ = '0.4.0'
-__url__ = 'https://github.com/cdrx/faktory_worker_python'
+__version__ = "0.4.0"
+__url__ = "https://github.com/cdrx/faktory_worker_python"
 
 
 def get_client(*args, **kwargs):

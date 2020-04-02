@@ -25,7 +25,18 @@ class Client:
         self.faktory.disconnect()
         self.is_connected = False
 
-    def queue(self, task: str, args: typing.Iterable=None, queue: str='default', priority: int=5, jid: str=None, custom=None, reserve_for=None, at=None, retry=5):
+    def queue(
+        self,
+        task: str,
+        args: typing.Iterable = None,
+        queue: str = "default",
+        priority: int = 5,
+        jid: str = None,
+        custom=None,
+        reserve_for=None,
+        at=None,
+        retry=5,
+    ):
         was_connected = self.is_connected
         if not self.is_connected:
             # connect if we are not already connected
@@ -43,29 +54,28 @@ class Client:
         if args is None:
             args = ()
 
-        request = {
-            'jid': jid,
-            'queue': queue,
-            'jobtype': task,
-            'priority': priority
-        }
+        request = {"jid": jid, "queue": queue, "jobtype": task, "priority": priority}
 
         if custom is not None:
-            request['custom'] = custom
+            request["custom"] = custom
 
         if args is not None:
-            if not isinstance(args, (typing.Iterator, typing.Set, typing.List, typing.Tuple)):
-                raise ValueError("Argument `args` must be an iterator, generator, list, tuple or a set")
+            if not isinstance(
+                args, (typing.Iterator, typing.Set, typing.List, typing.Tuple)
+            ):
+                raise ValueError(
+                    "Argument `args` must be an iterator, generator, list, tuple or a set"
+                )
 
-            request['args'] = list(args)
+            request["args"] = list(args)
 
         if reserve_for is not None:
-            request['reserve_for'] = reserve_for
+            request["reserve_for"] = reserve_for
 
         if at is not None:
-            request['at'] = at
+            request["at"] = at
 
-        request['retry'] = retry
+        request["retry"] = retry
 
         self.faktory.reply("PUSH", request)
         ok = next(self.faktory.get_message())
