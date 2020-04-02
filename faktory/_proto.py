@@ -1,20 +1,18 @@
-from typing import Iterator, Optional
-
-import logging
 import hashlib
+import json
+import logging
 import os
 import os.path
-import json
 import select
 import socket
 import ssl
-
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from .exceptions import (
-    FaktoryHandshakeError,
     FaktoryAuthenticationError,
     FaktoryConnectionResetError,
+    FaktoryHandshakeError,
 )
 
 
@@ -36,12 +34,12 @@ class Connection:
 
     def __init__(
         self,
-        faktory=None,
-        timeout=30,
-        buffer_size=4096,
+        faktory: Optional[str] = None,
+        timeout: int = 30,
+        buffer_size: int = 4096,
         worker_id=None,
-        labels=None,
-        log=None,
+        labels: List[str] = None,
+        log: logging.Logger = None,
     ):
         if not faktory:
             faktory = os.environ.get("FAKTORY_URL", "tcp://localhost:7419")
@@ -62,10 +60,11 @@ class Connection:
             self.labels = []
 
         self.worker_id = worker_id
+        self.socket = None
 
         self.log = log or logging.getLogger(name="faktory.connection")
 
-    def connect(self, worker_id: str = None) -> bool:
+    def connect(self, worker_id=None) -> bool:
         self.log.info("Connecting to {}:{}".format(self.host, self.port))
         self.is_connecting = True
 
@@ -141,7 +140,105 @@ class Connection:
         self.is_connected, self.is_connecting = True, False
         return self.is_connected
 
-    def is_supported_server_version(self, v: int):
+    def _validate_handshake(self, payload: Dict[str, Any]) -> None:
+        """
+        Helper function designed to authenticate with the Faktory
+        server and validate the connection is as expected.
+
+        Args:
+            - payload (Dict[str, Any]): Response from sending the initial `Hello` message. Payload
+                is expected to have the following keys: `[hostname, pid, labels]` and
+                optionally have the following keys: `[worker_id, pwdhash]`
+
+        Raises:
+            - FaktoryHandshakeError: Raised when receiving an unexpected response
+                in the handshake message from the server.
+            - FaktoryAuthenticationError: Raised when an invalid password is supplied.
+
+        Response:
+            - None
+        """
+        self.reply("HELLO", payload)
+
+        ok = next(self.get_message())
+        if ok != "OK":
+            if ok.startswith("ERR") and "invalid password" in ok.lower():
+                self.socket.close()
+                raise FaktoryAuthenticationError(
+                    "Could not connect to Faktory; wrong password"
+                )
+            self.socket.close()
+            raise FaktoryHandshakeError(
+                "Could not connect to Faktory; expected OK from server, but got '{}'".format(
+                    ok
+                )
+            )
+
+        self.log.debug("Connected to Faktory")
+
+    def validate_connection(self, send_worker_id: bool = False) -> None:
+        """
+        Connects to the Faktory job server and validates the connection.
+
+        Args:
+            - send_worker_id (bool): Flag of whether to send the worker_id to the
+                Faktory server.
+
+        Raises:
+            - FaktoryHandshakeError: Raised if a message with an unexpected
+                format is received from the job server.
+            - FaktoryHandshakeError: Raised if the job server's version
+                isn't supported by this client.
+            - FaktoryAuthenticationError: Raised if invalid credentials are
+                used when trying to authenticate with the job server.
+
+        Returns:
+            - None
+        """
+        ahoy = next(self.get_message())
+        if not ahoy.startswith("HI "):
+            raise FaktoryHandshakeError(
+                "Could not connect to Faktory; expected HI from server, but got '{}'".format(
+                    ahoy
+                )
+            )
+
+        response = {
+            "hostname": socket.gethostname(),
+            "pid": os.getpid(),
+            "labels": self.labels,
+        }
+
+        if send_worker_id:
+            response["wid"] = self.worker_id
+
+        try:
+            handshake = json.loads(ahoy[len("HI ") :])
+            version = int(handshake["v"])
+            if not self.is_supported_server_version(version):
+                self.socket.close()
+                raise FaktoryHandshakeError(
+                    "Could not connect to Faktory; unsupported server version {}".format(
+                        version
+                    )
+                )
+
+            nonce = handshake.get("s")
+            if nonce and self.password:
+                response["pwdhash"] = hashlib.sha256(
+                    str.encode(self.password) + str.encode(nonce)
+                ).hexdigest()
+        except (ValueError, TypeError):
+            self.socket.close()
+            raise FaktoryHandshakeError(
+                "Could not connect to Faktory; expected handshake format"
+            )
+        self._validate_handshake(response)
+
+        self.is_connected, self.is_connecting = True, False
+        return self.is_connected
+
+    def is_supported_server_version(self, v: int) -> bool:
         return v == 2
 
     def get_message(self) -> Iterator[str]:
@@ -195,7 +292,7 @@ class Connection:
                     else:
                         buffer += more
 
-    def select_data(self, buffer_size):
+    def select_data(self, buffer_size: int):
         s = self.socket
         ready = select.select([s], [], [], self.timeout)
         if ready[0]:
@@ -205,7 +302,7 @@ class Connection:
         self.disconnect()
         raise FaktoryConnectionResetError
 
-    def fetch(self, queues) -> Optional[dict]:
+    def fetch(self, queues: Iterable[str]) -> Optional[dict]:
         self.reply("FETCH {}".format(" ".join(queues)))
         job = next(self.get_message())
         if not job:
@@ -214,7 +311,7 @@ class Connection:
         data = json.loads(job)
         return data
 
-    def reply(self, cmd, data=None):
+    def reply(self, cmd: str, data: Any = None):
         if self.debug:
             self.log.debug("< {} {}".format(cmd, data or ""))
         s = cmd
