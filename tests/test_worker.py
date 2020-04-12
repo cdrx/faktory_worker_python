@@ -1,51 +1,15 @@
 import json
 import time
-from datetime import datetime
-from typing import Callable, Iterable, Optional
-from unittest.mock import MagicMock
+import uuid
+from datetime import datetime, timedelta
+from typing import Any, Callable, Iterable, Optional
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 
 from faktory._proto import Connection
 from faktory.client import Client
 from faktory.worker import Task, Worker
-
-
-@pytest.fixture
-def conn_factory() -> Callable:
-    def build_conn(
-        connect_return_value: bool = True,
-        disconnect_return_value: None = None,
-        reply_return_value: None = None,
-        get_message_return_value: Optional[Iterable[str]] = None,
-    ):
-        if get_message_return_value is None:
-            get_message_return_value = ["OK"]
-
-        mock_conn = MagicMock()
-
-        mock_conn.connect = MagicMock(return_value=connect_return_value)
-        mock_conn.disconnect = MagicMock(return_value=disconnect_return_value)
-        mock_conn.reply = MagicMock(return_value=reply_return_value)
-        # Expects an iterator
-        mock_conn.get_message = MagicMock(return_value=iter(get_message_return_value))
-        return mock_conn
-
-    return build_conn
-
-
-@pytest.fixture
-def worker_factory(
-    conn_factory: Callable, monkeypatch, *args, **kwargs
-) -> Callable[[], Worker]:
-    def build_worker(*args, **kwargs) -> Worker:
-        conn = conn_factory(*args, **kwargs)
-        monkeypatch.setattr("faktory.worker.Connection", conn)
-
-        work = Worker()
-        return work
-
-    return build_worker
 
 
 @pytest.fixture
@@ -64,10 +28,33 @@ def conn() -> Connection:
 @pytest.fixture
 def worker(conn: MagicMock, monkeypatch):
 
+    mock_executor = MagicMock()
+
     monkeypatch.setattr("faktory.worker.Connection", conn)
 
     work = Worker()
+    work._last_heartbeat = datetime.now()
+    monkeypatch.setattr(work, "_executor", mock_executor)
     return work
+
+
+def create_future(
+    done_return_value: bool = True,
+    result_side_effect: Optional[Any] = None,
+    result_return_value: Optional[Any] = None,
+):
+    fut = MagicMock()
+    fut.done = MagicMock(return_value=done_return_value)
+    fut.job_id = uuid.uuid4().hex
+    fut.result = MagicMock(
+        return_value=result_return_value, side_effect=result_side_effect
+    )
+    return fut
+
+
+def test_get_queues(worker):
+
+    assert worker.get_queues() == worker._queues
 
 
 def test_mocked_connection_correctly(conn, monkeypatch):
@@ -82,6 +69,153 @@ def test_mocked_connection_correctly(conn, monkeypatch):
     monkeypatch.setattr("faktory.worker.Connection", conn_mock)
     worker = Worker()
     assert worker.faktory == conn
+
+
+class TestWorkerTick:
+    """
+    Lots of tests in this class mock `time.sleep`. Some are
+    for actual testing purposes (and will assert so), others
+    are to make sure the test suite doesn't take forever
+    to run.
+    """
+
+    def add_mocks(
+        self,
+        worker,
+        monkeypatch,
+        *,
+        should_fetch_job: bool = True,
+        should_send_heartbeat: bool = True
+    ) -> MagicMock:
+        """
+        Since the mocking process on the `worker` object takes a decent
+        number of lines of code, we're breaking it out into a helper function
+        here. This (kind of illogically) returns the mock for `time`,
+        since that's the only object we create here within
+        the helper but can't access outside of it.
+        """
+
+        mock_time = MagicMock()
+        mock_time.sleep = MagicMock()
+
+        send_status_to_factory = MagicMock()
+        heartbeat = MagicMock()
+        process = MagicMock()
+        disconnect = MagicMock()
+        mock_should_fetch_job = PropertyMock(return_value=should_fetch_job)
+        mock_should_send_heartbeat = PropertyMock(return_value=should_send_heartbeat)
+
+        monkeypatch.setattr("faktory.worker.time", mock_time)
+        monkeypatch.setattr(worker, "heartbeat", heartbeat)
+        monkeypatch.setattr(worker, "disconnect", disconnect)
+        monkeypatch.setattr(worker, "send_status_to_faktory", send_status_to_factory)
+        monkeypatch.setattr(type(worker), "should_fetch_job", mock_should_fetch_job)
+        monkeypatch.setattr(
+            type(worker), "should_send_heartbeat", mock_should_send_heartbeat
+        )
+        # Mocking a "private" function might be considered a bad idea, but if we don't,
+        # we'd need to mock out the entire success and failure paths of a succesfully
+        # run future, which is way out of scope for unit tests.
+        monkeypatch.setattr(worker, "_process", process)
+
+        return mock_time
+
+    def test_updates_faktory_on_pending(self, worker, monkeypatch):
+
+        jobs = [create_future(), create_future()]
+        mock_time = self.add_mocks(worker, monkeypatch)
+
+        worker._pending = jobs
+
+        worker.tick()
+
+        worker.send_status_to_faktory.assert_called_once()
+
+    def test_doesnt_update_when_no_pending(self, worker, monkeypatch):
+        self.add_mocks(worker, monkeypatch)
+
+        worker._pending = []
+
+        worker.tick()
+
+        worker.send_status_to_faktory.assert_not_called()
+
+    def test_sleeps_if_not_fetching(self, worker, monkeypatch):
+
+        mock_time = self.add_mocks(
+            worker, monkeypatch, should_fetch_job=False, should_send_heartbeat=False
+        )
+
+        worker.tick()
+
+        mock_time.sleep.assert_called_once()
+
+    def test_submits_job_if_present(self, worker, monkeypatch):
+        job = {
+            "jid": "our job ID",
+            "jobtype": "super important probably",
+            "args": [1, 2],
+        }
+        self.add_mocks(worker, monkeypatch)
+        worker.faktory.fetch.return_value = {
+            "jid": "our job ID",
+            "jobtype": "super important probably",
+            "args": [1, 2],
+        }
+
+        worker.tick()
+
+        worker._process.assert_called_once_with(job["jid"], job["jobtype"], job["args"])
+
+    @pytest.mark.parametrize("empty_payload", [None, {}])
+    def test_doesnt_submit_if_no_work(self, worker, monkeypatch, empty_payload):
+        """
+        Tests to make sure that even if we should be fetching a job,
+        if there's no job, we don't submit anything for execution.
+        """
+
+        self.add_mocks(worker, monkeypatch)
+        worker.faktory.fetch.return_value = empty_payload
+
+        worker.tick()
+
+        worker._process.assert_not_called()
+
+    def test_can_disconnect_gracefully_after_emptying_jobs(self, worker, monkeypatch):
+        worker._pending = []
+        self.add_mocks(worker, monkeypatch, should_fetch_job=False)
+        worker.is_disconnecting = True
+        worker._disconnect_after = datetime.now() + timedelta(seconds=10)
+
+        worker.tick()
+
+        worker.faktory.disconnect.assert_called_once_with()
+
+    def test_waits_on_finishing_jobs_before_forcing(self, worker, monkeypatch):
+        """
+        Tests the scenario between where a disconnect has started and when
+        its forced that if there are jobs that are still pending, the
+        worker won't kill them off until the timeout.
+        """
+
+        worker._pending = [create_future(done_return_value=False)]
+        self.add_mocks(worker, monkeypatch, should_fetch_job=False)
+        worker.is_disconnecting = True
+        worker._disconnect_after = datetime.now() + timedelta(seconds=10)
+
+        worker.tick()
+        worker.faktory.disconnect.assert_not_called()
+        worker.disconnect.assert_not_called()
+
+    def test_forces_disconnect_after_timeout(self, worker, monkeypatch):
+        worker._pending = [create_future()]
+        self.add_mocks(worker, monkeypatch, should_fetch_job=False)
+        worker.is_disconnecting = True
+        worker._disconnect_after = datetime.now() - timedelta(seconds=10)
+
+        worker.tick()
+
+        worker.disconnect.assert_called_once_with(force=True)
 
 
 class TestWorkerRegister:
@@ -122,10 +256,12 @@ class TestWorkerRegister:
 
 
 class TestWorkerHeartbeat:
-    def test_assigns_heartbeat_timestamp(self, worker_factory):
-        worker = worker_factory(
-            get_message_return_value=json.dumps([{"unneeded": "value"}])
+    def test_assigns_heartbeat_timestamp(self, worker):
+        worker.faktory.get_message.return_value = iter(
+            json.dumps([{"unneeded": "value"}])
         )
+        worker._last_heartbeat = None
+
         now = datetime.now()
         time.sleep(0.001)
 
@@ -134,10 +270,11 @@ class TestWorkerHeartbeat:
         assert worker._last_heartbeat is not None
         assert now < worker._last_heartbeat
 
-    def test_sends_heartbeat_with_worker_id(self, worker_factory):
-        worker = worker_factory(
-            get_message_return_value=json.dumps([{"unneeded": "value"}])
+    def test_sends_heartbeat_with_worker_id(self, worker):
+        worker.faktory.get_message.return_value = iter(
+            json.dumps([{"unneeded": "value"}])
         )
+
         worker.heartbeat()
 
         heartbeat_args = worker.faktory.reply.call_args[0]
@@ -145,10 +282,13 @@ class TestWorkerHeartbeat:
         assert command == "BEAT"
         assert args == {"wid": worker.worker_id}
 
-    def test_terminates_if_told(self, worker_factory):
-        worker = worker_factory(
-            get_message_return_value=[{"state": "not sure", "terminate": True}]
+    def test_terminates_if_told(self, worker):
+        worker.faktory.get_message.return_value = iter(
+            [{"state": "not sure", "terminate": True}]
         )
+
+        worker._last_heartbeat = None
+
         assert worker.is_disconnecting == False
         assert worker._last_heartbeat is None
         now = datetime.now()
@@ -159,9 +299,11 @@ class TestWorkerHeartbeat:
         assert worker._last_heartbeat is not None
         assert now < worker._last_heartbeat
 
-    def test_quiets_if_told(self, worker_factory):
-        worker = worker_factory(
-            get_message_return_value=[{"state": "not sure", "quiet": True}]
+    def test_quiets_if_told(self, worker):
+        worker._last_heartbeat = None
+        worker.is_quiet = False
+        worker.faktory.get_message.return_value = iter(
+            [json.dumps({"state": "not sure", "quiet": True})]
         )
 
         assert worker.is_quiet == False
@@ -170,10 +312,9 @@ class TestWorkerHeartbeat:
         time.sleep(0.001)
         worker.heartbeat()
 
-        assert worker.is_quiet == True
-
         assert worker._last_heartbeat is not None
         assert now < worker._last_heartbeat
+        assert worker.is_quiet == True
 
 
 class TestWorkerGetWorkerId:
@@ -207,3 +348,177 @@ class TestGetRegisteredTask:
         worker.register("test", func)
         with pytest.raises(ValueError):
             task = worker.get_registered_task("other")
+
+
+class TestWorkerCanDisconnect:
+    def test_can_disconnect_if_no_tasks(self, worker):
+
+        assert worker.can_disconnect is True
+
+    def test_cant_disconnect_if_processing(self, worker):
+
+        worker._pending.append("some item")
+        assert worker.can_disconnect is False
+
+
+class TestWorkerShouldFetchJob:
+    def test_cant_fetch_job_if_disconnecting(self, worker):
+        worker.is_disconnecting = True
+        assert worker.should_fetch_job is False
+
+    def test_cant_fetch_job_if_quiet(self, worker):
+        worker.is_quiet = True
+        assert worker.should_fetch_job is False
+
+    def test_cant_fetch_job_if_has_enough(self, worker):
+
+        worker.is_quiet = False
+        worker.is_disconnecting = False
+
+        worker._pending.append("item")
+        worker._pending.append("item")
+        worker._pending.append("item")
+
+        worker.concurrency = 2
+
+        assert worker.should_fetch_job is False
+
+    def test_can_fetch_if_needs_work(self, worker):
+        worker.is_quiet = False
+        worker.is_disconnecting = False
+
+        worker._pending.append("item")
+
+        worker.concurrency = 2
+
+        assert worker.should_fetch_job is True
+
+
+class TestWorkerSendStatusToFaktory:
+    def test_does_nothing_if_work_isnt_done(self, worker, monkeypatch):
+
+        job_1 = create_future(done_return_value=False)
+        job_2 = create_future(done_return_value=False)
+
+        jobs = [job_1, job_2]
+
+        worker._pending = jobs
+
+        monkeypatch.setattr(worker, "_ack", MagicMock())
+        monkeypatch.setattr(worker, "_fail", MagicMock())
+
+        worker.send_status_to_faktory()
+
+        job_1.result.assert_not_called()
+        job_2.result.assert_not_called()
+        worker._ack.assert_not_called()
+        worker._fail.assert_not_called()
+
+    def test_acks_successful_jobs(self, worker, monkeypatch):
+
+        job_1 = create_future(done_return_value=True)
+
+        worker._pending = [job_1]
+
+        worker.send_status_to_faktory()
+
+        job_1.result.assert_called_once()
+        worker.faktory.reply.assert_called_with("ACK", {"jid": job_1.job_id})
+        worker.faktory.reply.assert_called_once()
+
+        worker.faktory.get_message.assert_called_once()
+
+    def test_fails_errored_jobs(self, worker, monkeypatch):
+
+        job_1 = create_future(
+            done_return_value=True, result_side_effect=KeyboardInterrupt()
+        )
+
+        worker._pending = [job_1]
+
+        worker.send_status_to_faktory()
+
+        job_1.result.assert_called_once()
+        worker.faktory.reply.assert_called_once_with("FAIL", {"jid": job_1.job_id})
+
+        worker.faktory.get_message.assert_called_once()
+
+    def test_relays_exception_info_on_errors(self, worker):
+
+        job = create_future(result_side_effect=ValueError("our testing error"))
+        worker._pending = [job]
+        worker.send_status_to_faktory()
+
+        worker.faktory.reply.assert_called_once_with(
+            "FAIL",
+            {
+                "jid": job.job_id,
+                "errtype": "ValueError",
+                "message": "our testing error",
+            },
+        )
+
+        worker.faktory.get_message.assert_called_once()
+
+
+class TestWorkerFailAllJobs:
+    def test_doesnt_fail_successful_jobs(self, worker, monkeypatch):
+
+        jobs = [create_future(), create_future(), create_future()]
+        worker._pending = jobs
+        monkeypatch.setattr(worker, "_ack", MagicMock())
+        monkeypatch.setattr(worker, "_fail", MagicMock())
+
+        worker.fail_all_jobs()
+
+        assert worker._ack.call_count == 3
+        worker._fail.assert_not_called()
+
+    def test_fails_pending_jobs(self, worker, monkeypatch):
+        success_job = create_future()
+        pending_job = create_future(done_return_value=False)
+        jobs = [success_job, pending_job]
+
+        worker._pending = jobs
+        monkeypatch.setattr(worker, "_ack", MagicMock())
+        monkeypatch.setattr(worker, "_fail", MagicMock())
+
+        worker.fail_all_jobs()
+
+        worker._ack.assert_called_once_with(success_job.job_id)
+
+        worker._fail.assert_called_once_with(pending_job.job_id)
+
+
+class TestExecutor:
+    def test_creates_if_not_exists(self, worker):
+        worker._executor = None
+        worker._executor_class = MagicMock()
+
+        assert worker._executor is None
+
+        executor = worker.executor
+        worker._executor_class.assert_called_once_with(max_workers=worker.concurrency)
+        assert worker._executor is not None
+
+    def test_returns_if_existing(self, worker):
+        executor = MagicMock()
+        worker._executor = executor
+        worker._executor_class = MagicMock()
+
+        executor = worker.executor
+        worker._executor_class.assert_not_called()
+
+        assert worker._executor == executor
+
+    def test_only_creates_once(self, worker):
+
+        worker._executor = None
+        worker._executor_class = MagicMock()
+
+        assert worker._executor is None
+
+        executor = worker.executor
+        other_executor = worker.executor
+        worker._executor_class.assert_called_once_with(max_workers=worker.concurrency)
+        assert worker._executor is not None
