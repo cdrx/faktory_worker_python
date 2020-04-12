@@ -1,17 +1,14 @@
-from typing import Iterable
-
 import logging
-import uuid
-import time
-import sys
 import signal
-
-from datetime import datetime, timedelta
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Executor
+import sys
+import time
+import uuid
+from collections import namedtuple
+from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures.thread import BrokenThreadPool
-
-from collections import namedtuple
+from datetime import datetime, timedelta
+from typing import Callable, Iterable
 
 from ._proto import Connection
 
@@ -85,7 +82,7 @@ class Worker:
         self.faktory = Connection(*args, **kwargs)
         # self.faktory.debug = True
 
-    def register(self, name, func, bind=False):
+    def register(self, name: str, func: Callable, bind: bool = False) -> None:
         """
         Register a task that can be run with this worker.
 
@@ -108,7 +105,7 @@ class Worker:
         self._tasks[name] = Task(name=name, func=func, bind=bind)
         self.log.info("Registered task: {}".format(name))
 
-    def deregister(self, name):
+    def deregister(self, name: str) -> None:
         """
         Remove a task from the list of registered tasks.
 
@@ -319,7 +316,7 @@ class Worker:
             self._last_heartbeat + timedelta(seconds=self.send_heartbeat_every)
         )
 
-    def heartbeat(self):
+    def heartbeat(self) -> None:
         """
         Send a heartbeat to the Faktory server so it knows this worker is still alive. This is sent every
         `self.send_heartbeat_every` seconds. The default is once per 15 seconds. It should not be more than 60s
