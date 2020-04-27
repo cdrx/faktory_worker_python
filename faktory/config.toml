@@ -1,0 +1,25 @@
+
+# Client configuration placeholder. Useful if we plan
+# to further extend the client's capabilities
+[client]
+
+
+
+
+# Worker based configuration. Migrating defaults here
+# so users can have smart defaults on a by-worker basis.
+[worker]
+heartbeat_seconds = 15
+concurrency = 1
+use_threads = false
+labels = ["python"]
+queues = ["default"]
+
+    # Worker disconnect timeouts in seconds due to different reasons
+    [worker.disconnect]
+    # Timeout for control + C
+    keyboard = 15
+    # Timeout due to a worker pool failure
+    pool_failure = 15
+    # Timeout when asked to shut down by Faktory
+    server_requested = 25

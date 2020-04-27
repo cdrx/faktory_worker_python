@@ -1,6 +1,8 @@
 import sys
+
 from setuptools import setup
 
+install_requires = open("requirements.txt").read().strip().split("\n")
 dev_requires = open("dev-requirements.txt").read().strip().split("\n")
 test_requires = open("test-requirements.txt").read().strip().split("\n")
 
@@ -15,6 +17,7 @@ setup(
     name="faktory",
     version="0.4.0",
     description="Python worker for the Faktory project",
+    install_requires=install_requires,
     extras_require=extras,
     classifiers=[
         "Development Status :: 3 - Alpha",

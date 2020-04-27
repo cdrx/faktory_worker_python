@@ -10,13 +10,15 @@ from concurrent.futures.thread import BrokenThreadPool
 from datetime import datetime, timedelta
 from typing import Callable, Iterable
 
+from faktory.configuration import config
+
 from ._proto import Connection
 
 Task = namedtuple("Task", ["name", "func", "bind"])
 
 
 class Worker:
-    send_heartbeat_every = 15  # seconds
+    send_heartbeat_every = config.worker.heartbeat_seconds
     is_quiet = False
     is_disconnecting = False
 
@@ -53,15 +55,14 @@ class Worker:
         :param executor: Set the class of the process executor that will be used. By default concurrenct.futures.ProcessPoolExecutor is used.
         :type executor: class
         """
-        self.concurrency = kwargs.pop("concurrency", 1)
+        self.concurrency = kwargs.pop("concurrency", config.worker.concurrency)
         self.log = kwargs.pop("log", logging.getLogger("faktory.worker"))
 
-        self._queues = kwargs.pop("queues", ["default",])
-        self._executor_class = kwargs.pop(
-            "executor",
+        self._queues = kwargs.pop("queues", config.worker.queues)
+        self._executor_class = (
             ThreadPoolExecutor
-            if kwargs.pop("use_threads", False)
-            else ProcessPoolExecutor,
+            if kwargs.pop("use_threads", config.worker.use_threads)
+            else ProcessPoolExecutor
         )
         self._last_heartbeat = None
         self._tasks = dict()
@@ -72,7 +73,7 @@ class Worker:
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         if "labels" not in kwargs:
-            kwargs["labels"] = ["python"]
+            kwargs["labels"] = config.worker.labels
         self.labels = kwargs["labels"]
 
         if "worker_id" not in kwargs:
@@ -165,10 +166,10 @@ class Worker:
                 self.log.info(
                     "Shutdown: waiting up to 15 seconds for workers to finish current tasks"
                 )
-                self.disconnect(wait=15)
+                self.disconnect(wait=config.worker.disconnect.keyboard)
             except (BrokenProcessPool, BrokenThreadPool):
                 self.log.info("Shutting down due to pool failure")
-                self.disconnect(force=True, wait=15)
+                self.disconnect(force=True, wait=config.worker.disconnect.pool_failure)
                 break
 
         if self.faktory.is_connected:
@@ -340,7 +341,7 @@ class Worker:
                     self.log.warning(
                         "Faktory has asked this worker to shutdown, will cancel any pending tasks still running 25s time"
                     )
-                self.disconnect(wait=25)
+                self.disconnect(wait=config.worker.disconnect.server_requested)
         self._last_heartbeat = datetime.now()
 
     @property
