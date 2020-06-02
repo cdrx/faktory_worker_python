@@ -36,6 +36,7 @@ class Client:
         reserve_for=None,
         at=None,
         retry=5,
+        backtrace=0,
     ):
         was_connected = self.is_connected
         if not self.is_connected:
@@ -76,6 +77,7 @@ class Client:
             request["at"] = at
 
         request["retry"] = retry
+        request["backtrace"] = backtrace
 
         self.faktory.reply("PUSH", request)
         ok = next(self.faktory.get_message())
