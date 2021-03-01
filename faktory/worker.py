@@ -44,6 +44,8 @@ class Worker:
         :type faktory: string
         :param concurrency: number of worker processes to start
         :type concurrency: int
+        :param disconnect_wait: number of seconds to wait when worker is interrupted before failing all jobs
+        :type disconnect_wait: int
         :param log: logger to use for status, errors and connection details
         :type log: logging.Logger
         :param labels: labels to show in the Faktory webui for this worker
@@ -54,6 +56,7 @@ class Worker:
         :type executor: class
         """
         self.concurrency = kwargs.pop("concurrency", 1)
+        self.disconnect_wait = kwargs.pop("disconnect_wait", 15)
         self.log = kwargs.pop("log", logging.getLogger("faktory.worker"))
 
         self._queues = kwargs.pop("queues", ["default",])
@@ -165,7 +168,7 @@ class Worker:
                 self.log.info(
                     "Shutdown: waiting up to 15 seconds for workers to finish current tasks"
                 )
-                self.disconnect(wait=15)
+                self.disconnect(wait=self.disconnect_wait)
             except (BrokenProcessPool, BrokenThreadPool):
                 self.log.info("Shutting down due to pool failure")
                 self.disconnect(force=True, wait=15)
