@@ -2,16 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## 0.5.0 - 2021-03-01
 
-### Added
--
-
-### Changed
--
-
-### Removed
--
+- Added support for the `backtrace` option, thanks to @tswayne
 
 
 ## 0.4.0 - 2018-02-21
