@@ -59,7 +59,12 @@ class Worker:
         self.disconnect_wait = kwargs.pop("disconnect_wait", 15)
         self.log = kwargs.pop("log", logging.getLogger("faktory.worker"))
 
-        self._queues = kwargs.pop("queues", ["default",])
+        self._queues = kwargs.pop(
+            "queues",
+            [
+                "default",
+            ],
+        )
         self._executor_class = kwargs.pop(
             "executor",
             ThreadPoolExecutor
@@ -253,7 +258,9 @@ class Worker:
             task = self.get_registered_task(job)
             if task.bind:
                 # pass the jid as argument 1 if the task has bind=True
-                args = [jid,] + args
+                args = [
+                    jid,
+                ] + args
 
             self.log.debug(
                 "Running task: {}({})".format(

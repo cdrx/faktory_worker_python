@@ -1,10 +1,19 @@
 import sys
+
 from setuptools import setup
 
-dev_requires = open("dev-requirements.txt").read().strip().split("\n")
-test_requires = open("test-requirements.txt").read().strip().split("\n")
+dev_requires = [
+    "black",
+]
 
-extras = {"dev": dev_requires + test_requires, "test": test_requires}
+test_requires = [
+    "pytest >= 5.0, < 6.0",
+]
+
+extras = {
+    "dev": dev_requires + test_requires,
+    "test": test_requires,
+}
 
 if sys.version_info < (3, 6):
     extras["dev"].remove("black")

@@ -137,7 +137,8 @@ class TestClientQueue:
         assert request["queue"] == "default"
 
     @pytest.mark.parametrize(
-        "args", [(1, "value"), [1, "value"], {1, "value"}],
+        "args",
+        [(1, "value"), [1, "value"], {1, "value"}],
     )
     @pytest.mark.parametrize("queue", ["default", "not default"])
     @pytest.mark.parametrize("num_retries", [1, 2])

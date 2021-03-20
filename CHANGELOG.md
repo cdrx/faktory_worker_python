@@ -2,8 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## 0.5.1 - 2021-03-20
+
+- Fixed issue with installing 0.5.0
+
 ## 0.5.0 - 2021-03-01
 
+- This release was yanked due to a build issue -- use 0.5.1 instead
 - Added support for the `backtrace` option, thanks to @tswayne
 
 
