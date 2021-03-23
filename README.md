@@ -4,7 +4,7 @@
 
 This project is a complete worker and client implementation for the [Faktory job server](https://github.com/contribsys/faktory). You can use it to either consume jobs from Faktory or push jobs to the Faktory server to be processed. 
 
-Requires Python 3.5+.
+Requires Python 3.7+.
 
 #### Supported Faktory Versions
 
