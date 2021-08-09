@@ -165,18 +165,18 @@ class Worker:
                 if not self.faktory.is_connected:
                     break
             except KeyboardInterrupt as e:
-                # 1st time through: soft close, wait 15 seconds for jobs to finish and send the work results to faktory
+                # 1st time through: soft close, wait `self.disconnect_wait` seconds for jobs to finish and send the work results to faktory
                 # 2nd time through: force close, don't wait, fail all current jobs and quit as quickly as possible
                 if self.is_disconnecting:
                     break
 
                 self.log.info(
-                    "Shutdown: waiting up to 15 seconds for workers to finish current tasks"
+                    f"Shutdown: waiting up to {self.disconnect_wait} seconds for workers to finish current tasks"
                 )
-                self.disconnect(wait=self.disconnect_wait)
+                self.disconnect()
             except (BrokenProcessPool, BrokenThreadPool):
                 self.log.info("Shutting down due to pool failure")
-                self.disconnect(force=True, wait=15)
+                self.disconnect(force=True)
                 break
 
         if self.faktory.is_connected:
@@ -186,7 +186,7 @@ class Worker:
         self.executor.shutdown(wait=False)
         sys.exit(1)
 
-    def disconnect(self, force=False, wait=30):
+    def disconnect(self, force=False, wait=None):
         """
         Disconnect from the Faktory server and shutdown this worker.
 
@@ -199,6 +199,9 @@ class Worker:
         :return:
         :rtype:
         """
+        if wait is None:
+            wait = self.disconnect_wait
+
         self.log.debug(
             "Disconnecting from Faktory, force={} wait={}".format(force, wait)
         )
@@ -348,9 +351,9 @@ class Worker:
             if "terminate" in ok:
                 if not self.is_disconnecting:
                     self.log.warning(
-                        "Faktory has asked this worker to shutdown, will cancel any pending tasks still running 25s time"
+                        f"Faktory has asked this worker to shutdown, will cancel any pending tasks still running {self.disconnect_wait}s time"
                     )
-                self.disconnect(wait=25)
+                self.disconnect()
         self._last_heartbeat = datetime.now()
 
     @property
