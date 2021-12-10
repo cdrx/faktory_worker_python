@@ -2,7 +2,7 @@ import hashlib
 import io
 import json
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 from faktory._proto import Connection
@@ -475,14 +475,15 @@ class TestConnectionReply:
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_sends_bytes(self, monkeypatch, data):
 
+        test_command = "test command"
         mocked_socket = MagicMock()
-        mock_send = MagicMock()
+        mock_send = MagicMock(return_value=len(test_command) + 2)
         mocked_socket.send = mock_send
 
         conn = Connection()
         monkeypatch.setattr(conn, "socket", mocked_socket)
 
-        conn.reply("test command")
+        conn.reply(test_command)
 
         mock_send.assert_called_once()
         assert isinstance(mock_send.call_args[0][0], bytes)
@@ -492,18 +493,47 @@ class TestConnectionReply:
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_adds_return_and_newline_to_payload(self, monkeypatch, data):
 
+        test_command = "test command"
         mocked_socket = MagicMock()
-        mock_send = MagicMock()
+        mock_send = MagicMock(return_value=len(test_command) + 2)
+        mocked_socket.send = mock_send
+
+        conn = Connection()
+        monkeypatch.setattr(conn, "socket", mocked_socket)
+
+        conn.reply(test_command)
+        called_with = mock_send.call_args[0][0]
+        decoded = called_with.decode()
+
+        assert "\r\n" == decoded[-2:]
+
+    @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
+    def test_sends_until_out_of_data(self, monkeypatch, data):
+
+        mocked_socket = MagicMock()
+        mock_send = MagicMock(return_value=7)
         mocked_socket.send = mock_send
 
         conn = Connection()
         monkeypatch.setattr(conn, "socket", mocked_socket)
 
         conn.reply("test command")
-        called_with = mock_send.call_args[0][0]
-        decoded = called_with.decode()
 
-        assert "\r\n" == decoded[-2:]
+        calls = [call(b"test command\r\n"), call(b"mmand\r\n")]
+        mock_send.assert_has_calls(calls)
+
+    @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
+    def test_send_zero_raises_error(self, monkeypatch, data):
+
+        mocked_socket = MagicMock()
+        mock_send = MagicMock(return_value=0)
+        mocked_socket.send = mock_send
+
+        conn = Connection()
+        monkeypatch.setattr(conn, "socket", mocked_socket)
+
+        with pytest.raises(FaktoryConnectionResetError):
+            conn.reply("test command")
 
 
 class TestConnectionDisconnect:
