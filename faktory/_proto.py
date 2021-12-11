@@ -320,7 +320,12 @@ class Connection:
                 s = "{} {}".format(s, json.dumps(data))
             else:
                 s = "{} {}".format(s, data)
-        self.socket.send(str.encode(s + "\r\n"))
+        buffer = str.encode(s + "\r\n")
+        while len(buffer):
+            sent = self.socket.send(buffer)
+            if sent == 0:
+                raise FaktoryConnectionResetError
+            buffer = buffer[sent:]
 
     def disconnect(self):
         self.log.info("Disconnected")
