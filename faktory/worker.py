@@ -4,7 +4,7 @@ import sys
 import time
 import uuid
 from collections import namedtuple
-from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, BrokenExecutor
 from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures.thread import BrokenThreadPool
 from datetime import datetime, timedelta
@@ -273,7 +273,7 @@ class Worker:
             future.job_id = jid
             self._pending.append(future)
         except BrokenExecutor as e:
-            logging.info("Handling broken executor")
+            logging.info("Handling broken executor -- ")
             self._executor = None
             self._fail(jid, exception=e)
         except (KeyError, Exception) as e:
