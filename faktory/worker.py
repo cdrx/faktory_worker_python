@@ -252,7 +252,6 @@ class Worker:
                     self.log.exception("Received KeyboardInterrupt! failed: {}".format(future.job_id))
                 except Exception as e:
                     self._fail(future.job_id, exception=e)
-                    self.log.info("future.result returned exception")
                     self.log.exception("Task failed: {}".format(future.job_id))
 
     def _process(self, jid: str, job: str, args):
@@ -273,7 +272,6 @@ class Worker:
             future.job_id = jid
             self._pending.append(future)
         except BrokenExecutor as e:
-            logging.info("Handling broken executor -- ")
             self._executor = None
             self._fail(jid, exception=e)
         except (KeyError, Exception) as e:
