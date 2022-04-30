@@ -269,7 +269,7 @@ class Connection:
                         if number_of_bytes <= 1:
                             if self.debug:
                                 self.log.debug("> {}".format("nil"))
-                            yield None
+                            yield ""
                         else:
                             if len(buffer) >= number_of_bytes:
                                 # we've already got enough bytes in the buffer
