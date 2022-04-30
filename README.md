@@ -9,10 +9,10 @@ Requires Python 3.7+.
 #### Supported Faktory Versions
 
 :x: 0.5.0 <br/>
-:white_check_mark: 0.6.0+ <br/>
-:white_check_mark: 0.7.0+ <br/>
-:white_check_mark: 0.8.0+ <br/>
-:white_check_mark: 1.0.0+ <br/>
+:white_check_mark: 0.6 <br/>
+:white_check_mark: 0.7 <br/>
+:white_check_mark: 0.8 <br/>
+:white_check_mark: 1.0 and up <br/>
 
 ## Features
 
@@ -54,7 +54,7 @@ with faktory.connection() as client:
 
 ## Worker Example
 
-Sample worker:
+To create a faktory worker (to process jobs from the server) you'll need something like this:
 
 ```
 from faktory import Worker
@@ -68,6 +68,10 @@ w.register('test', your_function)
 w.run()  # runs until control-c or worker shutdown from Faktory web UI
 
 ```
+
+#### Samples
+
+There is very basic [example worker](examples/worker.py) and an [example producer](examples/producer.py) that you can use as a basis for your project.
 
 #### Connection to Faktory
 
