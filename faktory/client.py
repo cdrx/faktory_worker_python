@@ -7,8 +7,8 @@ from ._proto import Connection
 class Client:
     is_connected = False
 
-    def __init__(self, faktory=None, connection=None):
-        self.faktory = connection or Connection(faktory)
+    def __init__(self, faktory=None, connection=None, **kwargs):
+        self.faktory = connection or Connection(faktory, **kwargs)
 
     def __enter__(self):
         self.connect()

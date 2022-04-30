@@ -4,7 +4,7 @@ import sys
 import time
 import uuid
 from collections import namedtuple
-from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, BrokenExecutor
 from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures.thread import BrokenThreadPool
 from datetime import datetime, timedelta
@@ -249,6 +249,7 @@ class Worker:
                     self._ack(future.job_id)
                 except KeyboardInterrupt:
                     self._fail(future.job_id)
+                    self.log.exception("Received KeyboardInterrupt! failed: {}".format(future.job_id))
                 except Exception as e:
                     self._fail(future.job_id, exception=e)
                     self.log.exception("Task failed: {}".format(future.job_id))
@@ -270,6 +271,9 @@ class Worker:
             future = self.executor.submit(task.func, *args)
             future.job_id = jid
             self._pending.append(future)
+        except BrokenExecutor as e:
+            self._executor = None
+            self._fail(jid, exception=e)
         except (KeyError, Exception) as e:
             self._fail(jid, exception=e)
 
