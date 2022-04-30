@@ -14,7 +14,6 @@ from faktory.worker import Task, Worker
 
 @pytest.fixture
 def conn() -> Connection:
-
     mock_conn = MagicMock()
     mock_conn.connect = MagicMock(return_value=True)
     mock_conn.disconnect = MagicMock(return_value=None)
@@ -27,7 +26,6 @@ def conn() -> Connection:
 
 @pytest.fixture
 def worker(conn: MagicMock, monkeypatch):
-
     mock_executor = MagicMock()
 
     monkeypatch.setattr("faktory.worker.Connection", conn)
@@ -53,7 +51,6 @@ def create_future(
 
 
 def test_get_queues(worker):
-
     assert worker.get_queues() == worker._queues
 
 
@@ -121,7 +118,6 @@ class TestWorkerTick:
         return mock_time
 
     def test_updates_faktory_on_pending(self, worker, monkeypatch):
-
         jobs = [create_future(), create_future()]
         mock_time = self.add_mocks(worker, monkeypatch)
 
@@ -141,7 +137,6 @@ class TestWorkerTick:
         worker.send_status_to_faktory.assert_not_called()
 
     def test_sleeps_if_not_fetching(self, worker, monkeypatch):
-
         mock_time = self.add_mocks(
             worker, monkeypatch, should_fetch_job=False, should_send_heartbeat=False
         )
@@ -220,7 +215,6 @@ class TestWorkerTick:
 
 class TestWorkerRegister:
     def test_errors_without_callable_func(self, worker: Worker):
-
         with pytest.raises(ValueError):
             worker.register("test", "will_cause_error", True)
 
@@ -352,11 +346,9 @@ class TestGetRegisteredTask:
 
 class TestWorkerCanDisconnect:
     def test_can_disconnect_if_no_tasks(self, worker):
-
         assert worker.can_disconnect is True
 
     def test_cant_disconnect_if_processing(self, worker):
-
         worker._pending.append("some item")
         assert worker.can_disconnect is False
 
@@ -371,7 +363,6 @@ class TestWorkerShouldFetchJob:
         assert worker.should_fetch_job is False
 
     def test_cant_fetch_job_if_has_enough(self, worker):
-
         worker.is_quiet = False
         worker.is_disconnecting = False
 
@@ -396,7 +387,6 @@ class TestWorkerShouldFetchJob:
 
 class TestWorkerSendStatusToFaktory:
     def test_does_nothing_if_work_isnt_done(self, worker, monkeypatch):
-
         job_1 = create_future(done_return_value=False)
         job_2 = create_future(done_return_value=False)
 
@@ -415,7 +405,6 @@ class TestWorkerSendStatusToFaktory:
         worker._fail.assert_not_called()
 
     def test_acks_successful_jobs(self, worker, monkeypatch):
-
         job_1 = create_future(done_return_value=True)
 
         worker._pending = [job_1]
@@ -429,7 +418,6 @@ class TestWorkerSendStatusToFaktory:
         worker.faktory.get_message.assert_called_once()
 
     def test_fails_errored_jobs(self, worker, monkeypatch):
-
         job_1 = create_future(
             done_return_value=True, result_side_effect=KeyboardInterrupt()
         )
@@ -444,7 +432,6 @@ class TestWorkerSendStatusToFaktory:
         worker.faktory.get_message.assert_called_once()
 
     def test_relays_exception_info_on_errors(self, worker):
-
         job = create_future(result_side_effect=ValueError("our testing error"))
         worker._pending = [job]
         worker.send_status_to_faktory()
@@ -463,7 +450,6 @@ class TestWorkerSendStatusToFaktory:
 
 class TestWorkerFailAllJobs:
     def test_doesnt_fail_successful_jobs(self, worker, monkeypatch):
-
         jobs = [create_future(), create_future(), create_future()]
         worker._pending = jobs
         monkeypatch.setattr(worker, "_ack", MagicMock())
@@ -512,7 +498,6 @@ class TestExecutor:
         assert worker._executor == executor
 
     def test_only_creates_once(self, worker):
-
         worker._executor = None
         worker._executor_class = MagicMock()
 

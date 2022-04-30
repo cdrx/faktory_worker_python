@@ -3,7 +3,6 @@ version: "3"
 services:
   faktory:
     image: contribsys/faktory:latest
-    command: -b 0.0.0.0:7419
     ports:
-      - 7419:7419
-      - 7420:7420
+      - "7419:7419"
+      - "7420:7420"

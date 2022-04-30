@@ -15,7 +15,6 @@ from faktory.exceptions import (
 
 class TestConnectionConstructor:
     def test_init(self):
-
         server_url = "tcp://a-server:7419"
         timeout = 45
         buffer_size = 2048
@@ -38,7 +37,6 @@ class TestConnectionConstructor:
         assert conn.labels == labels
 
     def test_ignores_env_if_specified(self, monkeypatch):
-
         env_value = "tcp://other-server:5000"
         monkeypatch.setenv("FAKTORY_URL", env_value)
 
@@ -48,7 +46,6 @@ class TestConnectionConstructor:
         assert conn.port == 6000
 
     def test_uses_env_value_if_exists_and_not_overriden(self, monkeypatch):
-
         env_value = "tcp://other-server:5000"
         monkeypatch.setenv("FAKTORY_URL", env_value)
 
@@ -58,7 +55,6 @@ class TestConnectionConstructor:
         assert conn.port == 5000
 
     def test_has_default_if_not_provided_or_in_env(self, monkeypatch):
-
         monkeypatch.delenv("FAKTORY_URL", raising=False)
 
         conn = Connection()
@@ -66,12 +62,10 @@ class TestConnectionConstructor:
         assert conn.port is not None
 
     def test_uses_empty_list_when_not_given_labels(self):
-
         conn = Connection()
         assert conn.labels == []
 
     def test_parses_server_information_from_url(self):
-
         conn = Connection("tcp://:Password123!@localhost:7419")
         assert conn.host == "localhost"
         assert conn.password == "Password123!"
@@ -306,7 +300,6 @@ class TestValidateHandshake:
 
 class TestConnectionSelectData:
     def test_returns_buffer_if_exists(self, monkeypatch):
-
         mocked_socket = MagicMock()
 
         mocked_select = MagicMock(return_value=[True, False, False])
@@ -396,7 +389,6 @@ class TestConnectionFetch:
         [["default"], ["default", "important"], ["important", "not_important"]],
     )
     def test_fetches_using_queues(self, monkeypatch, queues: List[str]):
-
         mock_reply = MagicMock()
         mock_get_message = MagicMock(return_value=iter([None]))
         conn = Connection()
@@ -415,7 +407,6 @@ class TestConnectionFetch:
             assert queue in reply_args
 
     def test_returns_none_if_no_job(self, monkeypatch):
-
         mock_reply = MagicMock()
         mock_get_message = MagicMock(return_value=iter([None]))
         conn = Connection()
@@ -431,7 +422,6 @@ class TestConnectionFetch:
         assert result is None
 
     def test_returns_deserialized_job_info_if_present(self, monkeypatch):
-
         data = {
             "wid": "test worker",
             "pid": 500,
@@ -456,7 +446,6 @@ class TestConnectionFetch:
 
 class TestConnectionIsSupportedServerVersion:
     def test_supported_version(self):
-
         conn = Connection()
 
         result = conn.is_supported_server_version(2)
@@ -464,7 +453,6 @@ class TestConnectionIsSupportedServerVersion:
 
     @pytest.mark.parametrize("version", [1, 3, 4, 5])
     def test_unsupported_version(self, version: int):
-
         conn = Connection()
 
         result = conn.is_supported_server_version(version)
@@ -474,7 +462,6 @@ class TestConnectionIsSupportedServerVersion:
 class TestConnectionReply:
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_sends_bytes(self, monkeypatch, data):
-
         test_command = "test command"
         mocked_socket = MagicMock()
         mock_send = MagicMock(return_value=len(test_command) + 2)
@@ -492,7 +479,6 @@ class TestConnectionReply:
 
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_adds_return_and_newline_to_payload(self, monkeypatch, data):
-
         test_command = "test command"
         mocked_socket = MagicMock()
         mock_send = MagicMock(return_value=len(test_command) + 2)
@@ -509,7 +495,6 @@ class TestConnectionReply:
 
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_sends_until_out_of_data(self, monkeypatch, data):
-
         mocked_socket = MagicMock()
         mock_send = MagicMock(return_value=7)
         mocked_socket.send = mock_send
@@ -524,7 +509,6 @@ class TestConnectionReply:
 
     @pytest.mark.parametrize("data", [None, "string data", {"data": "dict data"}])
     def test_send_zero_raises_error(self, monkeypatch, data):
-
         mocked_socket = MagicMock()
         mock_send = MagicMock(return_value=0)
         mocked_socket.send = mock_send
@@ -538,7 +522,6 @@ class TestConnectionReply:
 
 class TestConnectionDisconnect:
     def test_closes_socket(self, monkeypatch):
-
         mocked_socket = MagicMock()
         mock_close = MagicMock()
         mocked_socket.close = mock_close
@@ -550,7 +533,6 @@ class TestConnectionDisconnect:
         mock_close.assert_called_once()
 
     def test_sets_connection_flag_to_false(self, monkeypatch):
-
         mocked_socket = MagicMock()
         conn = Connection()
         monkeypatch.setattr(conn, "socket", mocked_socket)

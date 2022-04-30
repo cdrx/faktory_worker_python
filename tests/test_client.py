@@ -3,14 +3,12 @@ from typing import Iterable
 from unittest.mock import MagicMock
 
 import pytest
-
 from faktory._proto import Connection
 from faktory.client import Client
 
 
 @pytest.fixture
 def conn() -> Connection:
-
     mock_conn = MagicMock()
     mock_conn.connect = MagicMock(return_value=True)
     mock_conn.disconnect = MagicMock(return_value=None)
@@ -27,20 +25,17 @@ def client(conn) -> Client:
 
 
 def test_constructor_uses_existing_conn(conn):
-
     client = Client(connection=conn)
     assert client.faktory == conn
 
 
 def test_creates_connection_from_url():
-
     client = Client("tcp://a-server:7419")
     assert client.faktory.host == "a-server"
     assert client.faktory.port == 7419
 
 
 def test_connect_connects_to_server(client):
-
     assert client.is_connected == False
 
     was_successful = client.connect()
@@ -50,7 +45,6 @@ def test_connect_connects_to_server(client):
 
 
 def test_disconnect_disconnects_from_server(client):
-
     assert client.is_connected == False
 
     was_successful = client.connect()
@@ -64,7 +58,6 @@ def test_disconnect_disconnects_from_server(client):
 
 
 def test_context_manager_no_errors(client):
-
     assert client.is_connected == False
 
     with client:
@@ -92,7 +85,6 @@ def test_context_manager_closes_on_error(client):
 
 
 def test_random_job_id(client):
-
     random_id = client.random_job_id()
     second_random_id = client.random_job_id()
 
@@ -100,7 +92,6 @@ def test_random_job_id(client):
 
 
 def test_job_id_is_serializable(client):
-
     random_id = client.random_job_id()
     # Will raise an error
     json.dumps(random_id)
@@ -108,7 +99,6 @@ def test_job_id_is_serializable(client):
 
 class TestClientQueue:
     def test_can_queue_job(self, client: Client):
-
         was_successful = client.queue("test", args=(1, 2))
         assert was_successful
         client.faktory.reply.assert_called_once()
@@ -185,7 +175,6 @@ class TestClientQueue:
         client.disconnect.assert_not_called()
 
     def test_requires_task_name(self, client: Client):
-
         with pytest.raises(ValueError):
             client.queue(None, args=(1, 2))
 
@@ -194,6 +183,5 @@ class TestClientQueue:
             client.queue("test", queue=None)
 
     def test_requires_sequence_args(self, client: Client):
-
         with pytest.raises(ValueError):
             client.queue("test", args="will error because not sequence")
