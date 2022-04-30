@@ -25,6 +25,7 @@ setup(
     version="0.5.1",
     description="Python worker for the Faktory project",
     extras_require=extras,
+    python_requires=">=3.7.0",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
