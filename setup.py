@@ -22,7 +22,7 @@ extras["all_extras"] = sum(extras.values(), [])
 
 setup(
     name="faktory",
-    version="0.5.1",
+    version="1.0.0",
     description="Python worker for the Faktory project",
     extras_require=extras,
     python_requires=">=3.7.0",

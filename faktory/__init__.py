@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 
-from .worker import Worker
 from .client import Client
 from .exceptions import *
+from .worker import Worker
 
-__version__ = "0.4.0"
+__version__ = "1.0.0"
 __url__ = "https://github.com/cdrx/faktory_worker_python"
 
 
