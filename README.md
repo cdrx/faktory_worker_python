@@ -95,3 +95,13 @@ The worker users Python's built in logging module, which you can enable like thi
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
+
+## Troubleshooting
+
+### Registering decorated functions
+
+This project uses the standard library's `pickle` module during job execution to serialize registered functions. However, one limitation of the `pickle` library is that the function serialization will fail if the given function uses a decorator. This issue only appears if the worker uses multiprocessing (the default) for concurency. A workaround is to use threads instead:
+
+```
+w = Worker(..., use_threads=True)
+```
