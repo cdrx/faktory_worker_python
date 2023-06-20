@@ -100,7 +100,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 ### Registering decorated functions
 
-This project uses the standard library's `pickle` module during job execution to serialize registered functions. However, one limitation of the `pickle` library is that the function serialization will fail if the given function uses a decorator. This issue only appears if the worker uses multiprocessing (the default) for concurency. A workaround is to use threads instead:
+When using the default multiprocessing mode of concurrency, the underlying process pool uses the standard library's `pickle` module to serialize registered functions. However, a function can only be `pickled` if defined directly at the top-level of a module. If the function is instead produced by a decorator, the pickling won't work. A workaround for this issue is to change the mode of concurrenry and use threads instead:
 
 ```
 w = Worker(..., use_threads=True)
