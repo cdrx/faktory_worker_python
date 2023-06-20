@@ -68,6 +68,9 @@ w.register('test', your_function)
 w.run()  # runs until control-c or worker shutdown from Faktory web UI
 
 ```
+## Concurrency
+
+The default mode of concurrency is to use a [ProcessPoolExecutor](https://devdocs.io/python~3.11/library/concurrent.futures#concurrent.futures.ProcessPoolExecutor). Multiple processes are started, the number being controlled by the `concurrency` keyword argument of the `Worker` class. New processes are started only once, and stay up, processing jobs from the queue. There is the possibility to use threads instead of processes as a concurency mechanism. This is done by using `use_threads=True` at Worker creation. As with processes, threads are started once and reused for each job. When doing so, be mindful of the consequences of using threads in your code, like global variables concurrent access, or the fact that initialization code that is run outside of the registered functions will be run only once at worker startup, not once for each thread.
 
 #### Samples
 
