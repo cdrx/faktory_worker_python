@@ -370,7 +370,10 @@ class Worker:
         :rtype: concurrent.futures.Executor
         """
         if self._executor is None:
-            self._executor = self._executor_class(max_workers=self.concurrency)
+            kwargs = dict(max_workers=self.concurrency)
+            if self._executor_class is ThreadPoolExecutor:
+                kwargs['thread_name_prefix'] = 'Worker'
+            self._executor = self._executor_class(**kwargs)
         return self._executor
 
     def get_queues(self) -> Iterable:
