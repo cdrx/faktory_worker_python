@@ -297,6 +297,10 @@ class Connection:
         ready = select.select([s], [], [], self.timeout)
         if ready[0]:
             buffer = s.recv(self.buffer_size)
+            unread = s.pending()
+            while unread:
+                buffer += s.recv(unread)
+                unread = s.pending()
             if len(buffer) > 0:
                 return buffer
         self.disconnect()
