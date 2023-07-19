@@ -271,16 +271,10 @@ class Connection:
                                 self.log.debug("> {}".format("nil"))
                             yield ""
                         else:
-                            if len(buffer) >= number_of_bytes:
-                                # we've already got enough bytes in the buffer
-                                data = buffer[:number_of_bytes]
-                                buffer = buffer[number_of_bytes:]
-                            else:
-                                data = buffer
-                                while len(data) != number_of_bytes:
-                                    bytes_required = number_of_bytes - len(data)
-                                    data += self.select_data(bytes_required)
-                                buffer = []
+                            while len(buffer) < number_of_bytes:
+                                buffer += self.select_data()
+                            data = buffer[:number_of_bytes]
+                            buffer = buffer[number_of_bytes:]
                             resp = data.decode().strip("\r\n ")
                             if self.debug:
                                 self.log.debug("> {}".format(resp))
