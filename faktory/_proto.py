@@ -68,7 +68,13 @@ class Connection:
         self.log.info("Connecting to {}:{}".format(self.host, self.port))
         self.is_connecting = True
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # handle IPv4 or IPv6 hosts, get addr info returns a list of tuples of tuples
+        # this always uses the first one
+        faktory_ip_addresses = socket.getaddrinfo(self.host, None)
+        faktory_ip_address = faktory_ip_addresses[0][4][0]
+        faktory_ip_address_faimly = faktory_ip_addresses[0][0]
+
+        self.socket = socket.socket(faktory_ip_address_faimly, socket.SOCK_STREAM)
         if self.use_tls:
             self.log.debug("Using TLS")
             self.socket = ssl.wrap_socket(self.socket)
@@ -76,7 +82,7 @@ class Connection:
         self.socket.setblocking(0)
         self.socket.settimeout(self.timeout)
         try:
-            self.socket.connect((self.host, self.port))
+            self.socket.connect((faktory_ip_address, self.port))
         except ssl.SSLError:
             raise
 
